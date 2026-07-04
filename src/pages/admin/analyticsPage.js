@@ -164,23 +164,23 @@ function getMonthlyData(bookings) {
 }
 
 const CHART_COLORS = {
-  primary: 'rgba(108,138,255,0.8)',
-  primaryLine: '#6c8aff',
-  accent: 'rgba(255,123,79,0.8)',
-  success: 'rgba(74,222,128,0.8)',
-  purple: 'rgba(167,139,250,0.8)',
-  pink: 'rgba(244,114,182,0.8)',
-  teal: 'rgba(45,212,191,0.8)',
-  yellow: 'rgba(251,191,36,0.8)',
+  primary:     'rgba(79,114,245,0.85)',
+  primaryLine: '#4f72f5',
+  accent:      'rgba(245,105,42,0.85)',
+  success:     'rgba(34,197,94,0.85)',
+  purple:      'rgba(124,92,246,0.85)',
+  pink:        'rgba(244,114,182,0.85)',
+  teal:        'rgba(20,184,166,0.85)',
+  yellow:      'rgba(245,158,11,0.85)',
 };
 
 const chartDefaults = {
   plugins: {
-    legend: { labels: { color: '#94a3b8', font: { family: 'Inter' } } }
+    legend: { labels: { color: '#64748b', font: { family: 'Inter', size: 12 } } }
   },
   scales: {
-    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.06)' } }
+    x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(30,45,78,0.06)' } },
+    y: { ticks: { color: '#64748b' }, grid: { color: 'rgba(30,45,78,0.08)' } }
   }
 };
 
@@ -266,7 +266,7 @@ function renderRoomChart(bookings) {
           CHART_COLORS.purple, CHART_COLORS.pink, CHART_COLORS.teal, CHART_COLORS.yellow
         ],
         borderWidth: 2,
-        borderColor: '#0f1526',
+        borderColor: '#ffffff',
       }]
     },
     options: {
@@ -289,7 +289,7 @@ function renderMealChart(bookings) {
         data: [meals.BB, meals.HB, meals.FB, meals.None],
         backgroundColor: [CHART_COLORS.primary, CHART_COLORS.accent, CHART_COLORS.success, CHART_COLORS.purple],
         borderWidth: 2,
-        borderColor: '#0f1526',
+        borderColor: '#ffffff',
       }]
     },
     options: {
