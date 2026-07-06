@@ -160,7 +160,7 @@ function renderGrid() {
 
   // Build column count
   const cols = days.length;
-  const colsTemplate = `80px repeat(${cols}, minmax(100px, 1fr))`;
+  const colsTemplate = `110px repeat(${cols}, minmax(100px, 1fr))`;
 
   let html = `<div class="cal-grid" style="grid-template-columns:${colsTemplate}">`;
 
