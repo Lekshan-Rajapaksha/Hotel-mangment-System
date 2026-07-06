@@ -61,7 +61,7 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
             <div class="sidebar-user-role">${isAdmin ? '🔑 Admin' : '🎯 Receptionist'}</div>
           </div>
         </div>
-        <button class="btn btn-ghost w-full" id="logout-btn" title="Sign Out" style="justify-content:flex-start; gap:10px">
+        <button class="btn btn-ghost w-full" id="logout-btn" title="Sign Out">
           <span style="flex-shrink:0">🚪</span>
           <span class="sidebar-link-text">Sign Out</span>
         </button>
@@ -115,30 +115,18 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
 
 function toggleSidebar() {
   const sidebar = document.getElementById('main-sidebar');
-  const mainContent = document.getElementById('main-content');
   const isCollapsed = sidebar?.classList.toggle('collapsed');
 
   // Update arrow
   const arrow = document.querySelector('.collapse-arrow');
   if (arrow) arrow.textContent = isCollapsed ? '▶' : '◀';
 
-  // Update main content margin
-  if (mainContent) {
-    mainContent.style.marginLeft = isCollapsed
-      ? 'var(--sidebar-w-collapsed)'
-      : 'var(--sidebar-w)';
-  }
-
   // Persist
   localStorage.setItem(COLLAPSED_KEY, String(isCollapsed));
 }
 
 function applySidebarState() {
-  const isCollapsed = localStorage.getItem(COLLAPSED_KEY) === 'true';
-  const mainContent = document.getElementById('main-content');
-  if (mainContent && isCollapsed) {
-    mainContent.style.marginLeft = 'var(--sidebar-w-collapsed)';
-  }
+  // CSS handles the margin based on .sidebar.collapsed
 }
 
 export function renderMobileHeader(title) {

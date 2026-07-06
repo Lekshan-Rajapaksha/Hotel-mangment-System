@@ -225,8 +225,8 @@ function renderGrid() {
 
       let cellContent = '';
       if (isBooked && booking) {
-        const acBed = `${booking.acType||''}/${booking.bedType||''}`;
-        const meals = booking.meals !== 'None' ? `/${booking.meals}` : '';
+        const acBed = `${booking.acType||'N/A'} · ${booking.bedType||'N/A'}`;
+        const meals = booking.meals && booking.meals !== 'None' ? ` · 🍽️ ${booking.meals}` : '';
         const src = booking.source || '';
 
         // Compute the last booked day (checkout - 1) as fallback for occasion date
