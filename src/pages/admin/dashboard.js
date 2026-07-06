@@ -3,6 +3,7 @@ import { renderSidebar, renderMobileHeader, bindMobileHeader, setActiveNav } fro
 import { renderAdminCalendarPage } from './adminCalendarPage.js';
 import { renderAnalyticsPage } from './analyticsPage.js';
 import { renderBillsPage } from './billsPage.js';
+import { renderNotificationsPage } from './notificationsPage.js';
 
 let currentPage = 'calendar';
 
@@ -46,5 +47,8 @@ function loadPage(page) {
     renderAnalyticsPage(container);
   } else if (page === 'bills') {
     renderBillsPage(container);
+  } else if (page === 'notifications') {
+    renderNotificationsPage(container);
   }
 }
+

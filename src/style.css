@@ -652,6 +652,46 @@ select.form-control {
   text-overflow: ellipsis;
 }
 
+/* Notification badge on sidebar nav item */
+.notif-badge {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--clr-bg);
+  animation: badge-pop 0.3s ease;
+}
+
+@keyframes badge-pop {
+  0%   { transform: translateY(-50%) scale(0.5); opacity: 0; }
+  70%  { transform: translateY(-50%) scale(1.15); }
+  100% { transform: translateY(-50%) scale(1); opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+.sidebar.collapsed .notif-badge {
+  right: 4px;
+  top: 6px;
+  transform: none;
+}
+
+
 .sidebar-footer {
   padding: 16px 12px;
   border-top: 1.5px solid var(--clr-border);
@@ -1073,9 +1113,16 @@ select.form-control {
 
 .cal-cell.booked:hover { filter: brightness(1.06); }
 
-.cal-cell.today-col {
+/* Today column: only tint empty cells; booked cells keep their booking colour */
+.cal-cell.today-col:not(.booked) {
   background: #f0f4ff;
 }
+
+/* Subtle left-border accent so today's column is still identifiable on booked cells */
+.cal-cell.today-col {
+  border-left: 2px solid var(--clr-primary);
+}
+
 
 .cal-cell-info {
   position: absolute;
@@ -1094,6 +1141,15 @@ select.form-control {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cal-occasion-badge {
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .cal-cell-sub {

@@ -10,11 +10,19 @@ import { showSpinner, hideSpinner, showToast } from './utils/toast.js';
 
 let currentUser = null;
 let currentRole = null;
+// Flag to prevent onAuthStateChanged from re-rendering after a direct login
+let loginJustHandled = false;
 
 // Auth state listener
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // User is logged in — get role
+    // If we just handled login via the form, skip this re-render
+    if (loginJustHandled) {
+      loginJustHandled = false;
+      return;
+    }
+
+    // User is logged in (page refresh / persistent session) — get role
     showSpinner();
     try {
       let role = await getUserRole(user.uid);
@@ -62,6 +70,8 @@ async function handleLoginSuccess(user, role) {
   }
   currentUser = user;
   currentRole = role;
+  // Mark that we handled login directly so onAuthStateChanged skips the re-render
+  loginJustHandled = true;
   renderDashboard(user, role);
 }
 

@@ -80,13 +80,41 @@ export function openBookingModal(opts = {}) {
               </div>
               <div class="form-group">
                 <label class="form-label">Special Occasion</label>
-                <label class="toggle-wrap" style="height:42px; padding:0 14px; border:1px solid var(--clr-border); border-radius:6px; background:var(--clr-surface)">
-                  <span class="toggle">
-                    <input type="checkbox" id="bk-birthday" ${b.specialBirthday?'checked':''} />
-                    <span class="toggle-slider"></span>
-                  </span>
-                  <span style="font-size:0.85rem; color:var(--clr-text)">🎂 Birthday / Anniversary</span>
-                </label>
+                <div style="display:flex; flex-direction:column; gap:8px">
+
+                  <!-- Birthday -->
+                  <label class="toggle-wrap" style="height:38px; padding:0 14px; border:1px solid var(--clr-border); border-radius:6px; background:var(--clr-surface)">
+                    <span class="toggle">
+                      <input type="checkbox" id="bk-birthday" ${b.specialBirthday?'checked':''} />
+                      <span class="toggle-slider"></span>
+                    </span>
+                    <span style="font-size:0.85rem; color:var(--clr-text)">🎂 Birthday</span>
+                  </label>
+                  <div id="bk-birthday-date-wrap" style="display:${b.specialBirthday?'flex':'none'}; align-items:center; gap:8px; padding:8px 14px; background:var(--clr-primary-dim); border:1px solid rgba(108,138,255,0.25); border-radius:6px">
+                    <span style="font-size:0.8rem; color:var(--clr-primary); white-space:nowrap">🎂 Birthday date</span>
+                    <input type="date" id="bk-birthday-date" class="form-control"
+                      style="flex:1; height:34px; font-size:0.82rem"
+                      value="${b.birthdayDate||''}"
+                      min="${checkInVal}" max="${checkOutVal}" />
+                  </div>
+
+                  <!-- Anniversary -->
+                  <label class="toggle-wrap" style="height:38px; padding:0 14px; border:1px solid var(--clr-border); border-radius:6px; background:var(--clr-surface)">
+                    <span class="toggle">
+                      <input type="checkbox" id="bk-anniversary" ${b.specialAnniversary?'checked':''} />
+                      <span class="toggle-slider"></span>
+                    </span>
+                    <span style="font-size:0.85rem; color:var(--clr-text)">💑 Anniversary</span>
+                  </label>
+                  <div id="bk-anniversary-date-wrap" style="display:${b.specialAnniversary?'flex':'none'}; align-items:center; gap:8px; padding:8px 14px; background:rgba(255,182,193,0.12); border:1px solid rgba(255,105,180,0.25); border-radius:6px">
+                    <span style="font-size:0.8rem; color:#e879a0; white-space:nowrap">💑 Anniversary date</span>
+                    <input type="date" id="bk-anniversary-date" class="form-control"
+                      style="flex:1; height:34px; font-size:0.82rem"
+                      value="${b.anniversaryDate||''}"
+                      min="${checkInVal}" max="${checkOutVal}" />
+                  </div>
+
+                </div>
               </div>
             </div>
 
@@ -235,9 +263,15 @@ function bindModalEvents() {
   overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
   document.addEventListener('keydown', handleEscape);
 
-  // Nights update
-  document.getElementById('bk-checkin')?.addEventListener('change', updateNights);
-  document.getElementById('bk-checkout')?.addEventListener('change', updateNights);
+  // Nights update + keep occasion date pickers in sync with stay range
+  document.getElementById('bk-checkin')?.addEventListener('change', () => {
+    updateNights();
+    syncOccasionDateLimits();
+  });
+  document.getElementById('bk-checkout')?.addEventListener('change', () => {
+    updateNights();
+    syncOccasionDateLimits();
+  });
 
   // Remaining update
   document.getElementById('bk-fullprice')?.addEventListener('input', updateRemaining);
@@ -252,6 +286,18 @@ function bindModalEvents() {
   });
 
   bindRemoveGuest();
+
+  // Toggle birthday date picker
+  document.getElementById('bk-birthday')?.addEventListener('change', (e) => {
+    const wrap = document.getElementById('bk-birthday-date-wrap');
+    if (wrap) wrap.style.display = e.target.checked ? 'flex' : 'none';
+  });
+
+  // Toggle anniversary date picker
+  document.getElementById('bk-anniversary')?.addEventListener('change', (e) => {
+    const wrap = document.getElementById('bk-anniversary-date-wrap');
+    if (wrap) wrap.style.display = e.target.checked ? 'flex' : 'none';
+  });
 
   // Save
   document.getElementById('booking-save-btn')?.addEventListener('click', saveBooking);
@@ -297,6 +343,27 @@ function updateNights() {
     ? '⚠️ Check-out must be after check-in'
     : `${nights} night${nights > 1 ? 's' : ''} · ${new Date(ci).toLocaleDateString('en-LK', {weekday:'short',month:'short',day:'numeric'})} → ${new Date(co).toLocaleDateString('en-LK', {weekday:'short',month:'short',day:'numeric'})}`;
 }
+
+/** Keep birthday/anniversary date pickers constrained to the stay range */
+function syncOccasionDateLimits() {
+  const ci = document.getElementById('bk-checkin')?.value;
+  const co = document.getElementById('bk-checkout')?.value;
+  if (!ci || !co) return;
+
+  const bdayInput = document.getElementById('bk-birthday-date');
+  const annivInput = document.getElementById('bk-anniversary-date');
+
+  [bdayInput, annivInput].forEach(input => {
+    if (!input) return;
+    input.min = ci;
+    input.max = co;
+    // If the currently selected date is now outside the range, clear it
+    if (input.value && (input.value < ci || input.value > co)) {
+      input.value = '';
+    }
+  });
+}
+
 
 function updateRemaining() {
   const full = parseFloat(document.getElementById('bk-fullprice')?.value) || 0;
@@ -348,6 +415,13 @@ async function saveBooking() {
     companyName: document.getElementById('bk-company')?.value?.trim() || '',
     source: document.getElementById('bk-source')?.value,
     specialBirthday: document.getElementById('bk-birthday')?.checked || false,
+    birthdayDate: document.getElementById('bk-birthday')?.checked
+      ? (document.getElementById('bk-birthday-date')?.value || '')
+      : '',
+    specialAnniversary: document.getElementById('bk-anniversary')?.checked || false,
+    anniversaryDate: document.getElementById('bk-anniversary')?.checked
+      ? (document.getElementById('bk-anniversary-date')?.value || '')
+      : '',
     notes: document.getElementById('bk-notes')?.value?.trim() || '',
     additionalGuests,
   };
@@ -373,18 +447,114 @@ async function saveBooking() {
 
 async function handleDelete() {
   if (!currentBooking) return;
-  if (!confirm(`Delete booking for ${currentBooking.guestName}? This cannot be undone.`)) return;
 
-  showSpinner();
-  try {
-    const { deleteBooking } = await import('../services/bookingService.js');
-    await deleteBooking(currentBooking.id);
-    showToast('Booking deleted', 'info');
-    hideSpinner();
-    closeModal();
-    if (onSavedCallback) onSavedCallback(null);
-  } catch (err) {
-    hideSpinner();
-    showToast('Failed to delete: ' + err.message, 'error');
+  // Determine if the booking is in the past
+  const checkOut = currentBooking.checkOut?.toDate
+    ? currentBooking.checkOut.toDate()
+    : new Date(currentBooking.checkOut);
+  const isPast = checkOut < new Date();
+
+  if (isPast) {
+    // Block deletion of past bookings entirely
+    showDeleteBlockedDialog(currentBooking.guestName, checkOut);
+    return;
   }
+
+  // Future booking → show delete-request dialog (sends to admin for approval)
+  showDeleteRequestDialog(currentBooking);
 }
+
+function showDeleteBlockedDialog(guestName, checkOutDate) {
+  document.querySelector('#dr-blocked-dialog')?.remove();
+  const formatted = checkOutDate.toLocaleDateString('en-LK', { day: 'numeric', month: 'long', year: 'numeric' });
+  const html = `
+    <div class="modal-overlay" id="dr-blocked-dialog" style="z-index:1100">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+          <h2 class="modal-title">🚫 Cannot Delete Past Booking</h2>
+          <button class="modal-close" id="dr-blocked-close">✕</button>
+        </div>
+        <div class="modal-body" style="text-align:center; padding:28px 24px">
+          <div style="font-size:3rem; margin-bottom:16px">🔒</div>
+          <div style="font-weight:700; font-size:1rem; margin-bottom:10px; color:var(--clr-text)">${guestName}</div>
+          <div style="font-size:0.87rem; color:var(--clr-text-muted); line-height:1.6">
+            This booking checked out on <strong>${formatted}</strong> and is now in the past.<br/>
+            Past bookings cannot be deleted to maintain records integrity.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="dr-blocked-ok">Understood</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+  const close = () => document.getElementById('dr-blocked-dialog')?.remove();
+  document.getElementById('dr-blocked-close')?.addEventListener('click', close);
+  document.getElementById('dr-blocked-ok')?.addEventListener('click', close);
+  document.getElementById('dr-blocked-dialog')?.addEventListener('click', (e) => {
+    if (e.target.id === 'dr-blocked-dialog') close();
+  });
+}
+
+function showDeleteRequestDialog(booking) {
+  document.querySelector('#dr-request-dialog')?.remove();
+  const checkIn = booking.checkIn?.toDate ? booking.checkIn.toDate() : new Date(booking.checkIn);
+  const checkOut = booking.checkOut?.toDate ? booking.checkOut.toDate() : new Date(booking.checkOut);
+  const fmt = (d) => d.toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const html = `
+    <div class="modal-overlay" id="dr-request-dialog" style="z-index:1100">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <h2 class="modal-title">🗑️ Request Booking Deletion</h2>
+          <button class="modal-close" id="dr-req-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:8px; padding:14px; margin-bottom:16px">
+            <div style="font-weight:700; font-size:0.95rem; margin-bottom:6px">${booking.guestName}</div>
+            <div style="font-size:0.82rem; color:var(--clr-text-muted)">Room ${booking.roomNumber} · ${fmt(checkIn)} → ${fmt(checkOut)}</div>
+          </div>
+          <div style="font-size:0.85rem; color:var(--clr-text-muted); margin-bottom:14px; line-height:1.6">
+            ⚠️ This will send a <strong>deletion request to the admin</strong>. The booking will only be deleted after admin approval. You cannot undo this request.
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="dr-reason">Reason for deletion <span style="color:var(--clr-text-muted)">(optional)</span></label>
+            <textarea id="dr-reason" class="form-control" rows="2" placeholder="e.g. Guest cancelled, booking error…"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="dr-req-cancel">Cancel</button>
+          <button class="btn btn-danger" id="dr-req-submit">📨 Send Delete Request</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  const closeDialog = () => document.getElementById('dr-request-dialog')?.remove();
+  document.getElementById('dr-req-close')?.addEventListener('click', closeDialog);
+  document.getElementById('dr-req-cancel')?.addEventListener('click', closeDialog);
+  document.getElementById('dr-request-dialog')?.addEventListener('click', (e) => {
+    if (e.target.id === 'dr-request-dialog') closeDialog();
+  });
+
+  document.getElementById('dr-req-submit')?.addEventListener('click', async () => {
+    const reason = document.getElementById('dr-reason')?.value?.trim() || '';
+    const submitBtn = document.getElementById('dr-req-submit');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending…'; }
+
+    try {
+      const { submitDeleteRequest } = await import('../services/deleteRequestService.js');
+      await submitDeleteRequest(booking, reason);
+      closeDialog();
+      closeModal();
+      showToast('Delete request sent to admin for approval 📨', 'info');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to send request: ' + err.message, 'error');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '📨 Send Delete Request'; }
+    }
+  });
+}
+

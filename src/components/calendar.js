@@ -47,11 +47,28 @@ export function renderCalendar(container, role) {
 
   // Subscribe to real-time bookings
   if (unsubscribe) unsubscribe();
-  unsubscribe = subscribeBookings((bookings) => {
-    allBookings = bookings;
-    buildBookingsMap(bookings);
-    renderGrid();
-  });
+  unsubscribe = subscribeBookings(
+    (bookings) => {
+      allBookings = bookings;
+      buildBookingsMap(bookings);
+      renderGrid();
+    },
+    (err) => {
+      // Show a visible error in the grid instead of staying stuck on "Loading…"
+      const gc = document.getElementById('cal-grid-container');
+      if (gc) {
+        gc.innerHTML = `
+          <div style="padding:40px; text-align:center; color:var(--clr-danger, #ef4444);">
+            <div style="font-size:2rem; margin-bottom:12px;">⚠️</div>
+            <div style="font-weight:700; margin-bottom:6px;">Failed to load bookings</div>
+            <div style="font-size:0.82rem; color:var(--clr-text-muted, #888);">${err.message}</div>
+            <div style="font-size:0.78rem; color:var(--clr-text-muted, #888); margin-top:8px;">Check the browser console for details.</div>
+          </div>`;
+      }
+      const titleEl = document.getElementById('cal-title');
+      if (titleEl) titleEl.textContent = 'Error loading data';
+    }
+  );
 }
 
 export function destroyCalendar() {
@@ -211,9 +228,42 @@ function renderGrid() {
         const acBed = `${booking.acType||''}/${booking.bedType||''}`;
         const meals = booking.meals !== 'None' ? `/${booking.meals}` : '';
         const src = booking.source || '';
+
+        // Compute the last booked day (checkout - 1) as fallback for occasion date
+        const checkOutDate = booking.checkOut?.toDate ? booking.checkOut.toDate() : new Date(booking.checkOut);
+        const lastBookedDate = new Date(checkOutDate);
+        lastBookedDate.setDate(lastBookedDate.getDate() - 1);
+        const lastBookedStr = toDateStr(lastBookedDate);
+
+        // Resolve the effective display date for each occasion:
+        // use saved date if valid & within stay, otherwise fallback to last booked day
+        const resolveDateStr = (savedDate) => {
+          if (!savedDate) return lastBookedStr;
+          // If occasion date == checkout (not a booked cell), use last booked day
+          const checkOutStr = toDateStr(checkOutDate);
+          if (savedDate === checkOutStr) return lastBookedStr;
+          return savedDate;
+        };
+
+        const bdayDisplayDate  = booking.specialBirthday    ? resolveDateStr(booking.birthdayDate)    : null;
+        const annivDisplayDate = booking.specialAnniversary ? resolveDateStr(booking.anniversaryDate) : null;
+
+        // Build badge only if this cell's date matches the resolved occasion date
+        let occasionBadge = '';
+        const isBdayCell  = bdayDisplayDate  && dateStr === bdayDisplayDate;
+        const isAnnivCell = annivDisplayDate && dateStr === annivDisplayDate;
+
+        if (isBdayCell && isAnnivCell) {
+          occasionBadge = `<span class="cal-occasion-badge" title="Birthday & Anniversary">🎂💑</span>`;
+        } else if (isBdayCell) {
+          occasionBadge = `<span class="cal-occasion-badge" title="Birthday 🎂">🎂</span>`;
+        } else if (isAnnivCell) {
+          occasionBadge = `<span class="cal-occasion-badge" title="Anniversary 💑">💑</span>`;
+        }
+
         cellContent = `
           <div class="cal-cell-info">
-            <div class="cal-cell-name">${booking.guestName}</div>
+            <div class="cal-cell-name">${booking.guestName}${occasionBadge}</div>
             <div class="cal-cell-sub">${src ? src + ' · ' : ''}${acBed}${meals}</div>
           </div>
         `;
@@ -308,6 +358,8 @@ function showAdminBookingModal(booking) {
             ${infoRow('Full Price', `LKR ${Number(booking.fullPrice||0).toLocaleString()}`)}
             ${infoRow('Advance', `LKR ${Number(booking.advancePaid||0).toLocaleString()}`)}
             ${infoRow('Remaining', `LKR ${Number(booking.remaining||0).toLocaleString()}`)}
+            ${booking.specialBirthday ? infoRow('🎂 Birthday', booking.birthdayDate ? new Date(booking.birthdayDate).toLocaleDateString('en-LK', {day:'numeric',month:'long',year:'numeric'}) : 'Date not set') : ''}
+            ${booking.specialAnniversary ? infoRow('💑 Anniversary', booking.anniversaryDate ? new Date(booking.anniversaryDate).toLocaleDateString('en-LK', {day:'numeric',month:'long',year:'numeric'}) : 'Date not set') : ''}
             ${booking.passportNumber ? infoRow('Passport', booking.passportNumber) : ''}
             ${booking.companyName ? infoRow('Company', booking.companyName) : ''}
           </div>

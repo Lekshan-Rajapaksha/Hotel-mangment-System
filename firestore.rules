@@ -19,5 +19,16 @@ service cloud.firestore {
       allow update: if request.auth != null;
       allow delete: if request.auth != null;
     }
+
+    // Delete requests: any authenticated user can create & read;
+    // update (approve/reject) and delete (dismiss) also require auth
+    match /deleteRequests/{requestId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.bookingId is string
+        && request.resource.data.status == 'pending';
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
   }
 }

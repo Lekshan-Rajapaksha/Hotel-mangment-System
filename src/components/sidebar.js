@@ -2,6 +2,7 @@
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase.js';
 import { showToast } from '../utils/toast.js';
+import { subscribePendingCount } from '../services/deleteRequestService.js';
 
 const COLLAPSED_KEY = 'sidebar_collapsed';
 
@@ -11,9 +12,10 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
   const isCollapsed = localStorage.getItem(COLLAPSED_KEY) === 'true';
 
   const adminLinks = [
-    { id: 'calendar',  icon: '📅', label: 'Room Calendar' },
-    { id: 'analytics', icon: '📊', label: 'Analytics' },
-    { id: 'bills',     icon: '🧾', label: 'All Bills' },
+    { id: 'calendar',      icon: '📅', label: 'Room Calendar' },
+    { id: 'analytics',    icon: '📊', label: 'Analytics' },
+    { id: 'bills',        icon: '🧾', label: 'All Bills' },
+    { id: 'notifications', icon: '🔔', label: 'Notifications', badge: true },
   ];
 
   const receptionLinks = [
@@ -24,9 +26,10 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
   const links = isAdmin ? adminLinks : receptionLinks;
 
   const linksHTML = links.map(l => `
-    <a class="sidebar-link ${currentPage === l.id ? 'active' : ''}" data-page="${l.id}" id="nav-${l.id}" title="${l.label}">
+    <a class="sidebar-link ${currentPage === l.id ? 'active' : ''}" data-page="${l.id}" id="nav-${l.id}" title="${l.label}" style="position:relative">
       <span class="sidebar-link-icon">${l.icon}</span>
       <span class="sidebar-link-text">${l.label}</span>
+      ${l.badge ? `<span class="notif-badge" id="notif-badge" style="display:none">0</span>` : ''}
     </a>
   `).join('');
 
@@ -93,6 +96,20 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
 
     // Apply initial state
     applySidebarState();
+
+    // Live pending-count badge for admin notifications
+    if (isAdmin) {
+      subscribePendingCount((count) => {
+        const badge = document.getElementById('notif-badge');
+        if (!badge) return;
+        if (count > 0) {
+          badge.textContent = count > 99 ? '99+' : String(count);
+          badge.style.display = 'flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      });
+    }
   }};
 }
 

@@ -22,7 +22,7 @@ export function formatDate(date, includeYear = false) {
   return includeYear ? `${day} ${month} ${year}` : `${day} ${month}`;
 }
 
-/** Get all date strings in a range [checkIn, checkOut) inclusive */
+/** Get all date strings in a range [checkIn, checkOut) — checkout day excluded */
 export function getDatesInRange(checkIn, checkOut) {
   const dates = [];
   const start = checkIn?.toDate ? checkIn.toDate() : new Date(checkIn);
@@ -31,12 +31,13 @@ export function getDatesInRange(checkIn, checkOut) {
   cur.setHours(0,0,0,0);
   const endD = new Date(end);
   endD.setHours(0,0,0,0);
-  while (cur <= endD) {
+  while (cur < endD) {   // strict < excludes the checkout date
     dates.push(toDateStr(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
 }
+
 
 /** Number of nights between two dates */
 export function nightCount(checkIn, checkOut) {
