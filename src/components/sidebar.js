@@ -13,6 +13,7 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
 
   const adminLinks = [
     { id: 'calendar',      icon: '📅', label: 'Room Calendar' },
+    { id: 'roomsummary',  icon: '🏨', label: 'Room Summary' },
     { id: 'analytics',    icon: '📊', label: 'Analytics' },
     { id: 'bills',        icon: '🧾', label: 'All Bills' },
     { id: 'notifications', icon: '🔔', label: 'Notifications', badge: true },

@@ -1581,3 +1581,217 @@ select.form-control {
 }
 
 .stat-value { animation: countUp 0.5s var(--ease) both; }
+
+/* ============================================
+   ROOM SUMMARY PAGE
+   ============================================ */
+
+/* View toggle pill group */
+.rs-toggle-group {
+  display: flex;
+  background: var(--clr-surface-2);
+  border: 1px solid var(--clr-border);
+  border-radius: 8px;
+  overflow: hidden;
+  gap: 0;
+}
+.rs-toggle-btn {
+  background: none;
+  border: none;
+  padding: 7px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  white-space: nowrap;
+}
+.rs-toggle-btn.active {
+  background: var(--grad-primary);
+  color: #fff;
+}
+.rs-toggle-btn:hover:not(.active) {
+  background: var(--clr-primary-dim);
+  color: var(--clr-primary);
+}
+
+/* Legend dots */
+.rs-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.rs-dot-booked   { background: linear-gradient(135deg, #4f72f5, #7c5cf6); }
+.rs-dot-free     { background: var(--clr-border-2); }
+.rs-dot-checkout { background: linear-gradient(135deg, #22c55e, #16a34a); }
+
+/* Rooms grid — weekly/monthly: multi-card layout */
+.rs-rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+/* Individual room card */
+.rs-room-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+  animation: fadeIn 0.3s var(--ease) both;
+}
+.rs-room-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.rs-room-card.rs-skeleton {
+  min-height: 200px;
+  background: linear-gradient(90deg, var(--clr-surface-2) 25%, var(--clr-border) 50%, var(--clr-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Room card header */
+.rs-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.rs-room-badge {
+  font-size: 0.92rem;
+  font-weight: 700;
+  background: var(--clr-primary-dim);
+  color: var(--clr-primary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(79,114,245,0.2);
+}
+.rs-stat-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--clr-surface-2);
+  color: var(--clr-text-muted);
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--clr-border);
+}
+
+/* Mini calendar layout */
+.rs-mini-cal {
+  font-size: 0.72rem;
+  width: 100%;
+}
+.rs-cal-head {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+.rs-cal-head span {
+  text-align: center;
+  font-weight: 700;
+  color: var(--clr-text-muted);
+  padding: 2px 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.rs-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 2px;
+}
+.rs-cal-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: default;
+  transition: background var(--dur) var(--ease);
+  color: var(--clr-text);
+  background: transparent;
+}
+
+/* Day states */
+.rs-day-other { color: var(--clr-text-faint); }
+
+.rs-day-booked {
+  background: linear-gradient(135deg, #4f72f5, #7c5cf6);
+  color: #fff !important;
+  font-weight: 700;
+  border-radius: 4px;
+}
+.rs-day-checkout {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff !important;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+/* ── Yearly single-room full-width container ── */
+.rs-yearly-single-container {
+  width: 100%;
+}
+.rs-yearly-single-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  animation: fadeIn 0.3s var(--ease) both;
+}
+
+/* 12-month grid — 4 columns for full-width yearly view */
+.rs-yearly-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+.rs-year-month {
+  background: var(--clr-surface-2);
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid var(--clr-border);
+  transition: box-shadow var(--dur) var(--ease);
+}
+.rs-year-month:hover {
+  box-shadow: var(--shadow-sm);
+}
+.rs-year-month-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--clr-primary);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+/* Slightly smaller text inside yearly sub-calendars */
+.rs-yearly-grid .rs-mini-cal { font-size: 0.65rem; }
+.rs-yearly-grid .rs-cal-head span { font-size: 0.6rem; }
+.rs-yearly-grid .rs-cal-day { font-size: 0.65rem; border-radius: 3px; }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .rs-yearly-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 760px) {
+  .rs-yearly-grid { grid-template-columns: repeat(2, 1fr); }
+  .rs-rooms-grid  { grid-template-columns: 1fr; }
+  .rs-toggle-btn  { padding: 6px 10px; font-size: 0.75rem; }
+}
+@media (max-width: 480px) {
+  .rs-yearly-grid { grid-template-columns: 1fr; }
+}

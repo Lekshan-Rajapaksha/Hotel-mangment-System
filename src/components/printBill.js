@@ -48,25 +48,6 @@ export function openPrintBill(booking) {
                 <div class="print-info-label">Phone</div>
                 <div class="print-info-value">${b.phone}</div>
               </div>
-              ${b.passportNumber ? `
-              <div class="print-info-item">
-                <div class="print-info-label">Passport / NIC</div>
-                <div class="print-info-value">${b.passportNumber}</div>
-              </div>` : ''}
-              ${b.companyName ? `
-              <div class="print-info-item">
-                <div class="print-info-label">Company / Agency</div>
-                <div class="print-info-value">${b.companyName}</div>
-              </div>` : ''}
-              <div class="print-info-item">
-                <div class="print-info-label">Booking Source</div>
-                <div class="print-info-value">${b.source || 'Direct'}</div>
-              </div>
-              ${b.specialBirthday ? `
-              <div class="print-info-item">
-                <div class="print-info-label">Special Occasion</div>
-                <div class="print-info-value">🎂 Birthday / Anniversary</div>
-              </div>` : ''}
             </div>
 
             <!-- Stay Details -->
@@ -102,11 +83,11 @@ export function openPrintBill(booking) {
             <!-- Additional Guests -->
             <div class="print-section-title">ADDITIONAL GUESTS</div>
             <table class="print-table" style="margin-bottom:20px">
-              <thead><tr><th>#</th><th>Name</th><th>Passport / NIC</th></tr></thead>
+              <thead><tr><th>#</th><th>Name</th></tr></thead>
               <tbody>
-                <tr><td>1</td><td>${b.guestName}</td><td>${b.passportNumber || '—'}</td></tr>
+                <tr><td>1</td><td>${b.guestName}</td></tr>
                 ${b.additionalGuests.map((g,i) => `
-                  <tr><td>${i+2}</td><td>${g.name}</td><td>${g.passport || '—'}</td></tr>
+                  <tr><td>${i+2}</td><td>${g.name}</td></tr>
                 `).join('')}
               </tbody>
             </table>` : ''}

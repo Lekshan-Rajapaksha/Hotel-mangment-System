@@ -2,6 +2,7 @@
 import { createBooking, updateBooking } from '../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../utils/toast.js';
 import { toDateStr, formatCurrency } from '../utils/dateHelpers.js';
+import { openPrintBill } from './printBill.js';
 
 let modalEl = null;
 let currentBooking = null;
@@ -225,6 +226,9 @@ export function openBookingModal(opts = {}) {
           <button type="button" class="btn btn-accent" id="booking-save-btn">
             ${booking ? '💾 Update Booking' : '✅ Confirm Booking'}
           </button>
+          <button type="button" class="btn btn-primary" id="booking-save-print-btn" style="display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#6c8aff,#a78bfa);border:none">
+            🖨️ ${booking ? 'Update &amp; Print Bill' : 'Confirm &amp; Print Bill'}
+          </button>
         </div>
       </div>
     </div>
@@ -300,7 +304,10 @@ function bindModalEvents() {
   });
 
   // Save
-  document.getElementById('booking-save-btn')?.addEventListener('click', saveBooking);
+  document.getElementById('booking-save-btn')?.addEventListener('click', () => saveBooking(false));
+
+  // Save + Print
+  document.getElementById('booking-save-print-btn')?.addEventListener('click', () => saveBooking(true));
 
   // Delete
   document.getElementById('booking-delete-btn')?.addEventListener('click', handleDelete);
@@ -376,7 +383,7 @@ function updateRemaining() {
   }
 }
 
-async function saveBooking() {
+async function saveBooking(andPrint = false) {
   const name    = document.getElementById('bk-name')?.value?.trim();
   const phone   = document.getElementById('bk-phone')?.value?.trim();
   const checkIn = document.getElementById('bk-checkin')?.value;
@@ -428,16 +435,21 @@ async function saveBooking() {
 
   showSpinner();
   try {
+    let savedId = currentBooking?.id;
     if (currentBooking) {
       await updateBooking(currentBooking.id, data);
       showToast('Booking updated successfully! 🎉', 'success');
     } else {
-      await createBooking(data);
+      const ref = await createBooking(data);
+      savedId = ref?.id || null;
       showToast('Booking confirmed! 🎉', 'success');
     }
     hideSpinner();
     closeModal();
     if (onSavedCallback) onSavedCallback(data);
+    if (andPrint) {
+      openPrintBill({ ...data, id: savedId });
+    }
   } catch (err) {
     hideSpinner();
     console.error(err);

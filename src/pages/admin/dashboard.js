@@ -4,6 +4,7 @@ import { renderAdminCalendarPage } from './adminCalendarPage.js';
 import { renderAnalyticsPage } from './analyticsPage.js';
 import { renderBillsPage } from './billsPage.js';
 import { renderNotificationsPage } from './notificationsPage.js';
+import { renderRoomSummaryPage } from './roomSummaryPage.js';
 
 let currentPage = 'calendar';
 
@@ -43,6 +44,8 @@ function loadPage(page) {
 
   if (page === 'calendar') {
     renderAdminCalendarPage(container);
+  } else if (page === 'roomsummary') {
+    renderRoomSummaryPage(container);
   } else if (page === 'analytics') {
     renderAnalyticsPage(container);
   } else if (page === 'bills') {
