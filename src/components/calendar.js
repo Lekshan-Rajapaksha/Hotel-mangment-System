@@ -186,8 +186,8 @@ function renderGrid() {
   ROOMS.forEach(room => {
     html += `
       <div class="cal-room-label" style="grid-column:1; grid-row:auto">
-        <span style="font-size:1rem">🚪</span>
-        <span>Room ${room}</span>
+        <span class="cal-room-icon">🚪</span>
+        <span class="cal-room-word">Room </span><span class="cal-room-num">${room}</span>
       </div>
     `;
 

@@ -156,22 +156,24 @@ function renderTable(bookings) {
 
     return `
       <tr data-id="${b.id}" style="${isCancelled ? 'opacity:0.5' : ''}">
-        <td style="font-family:monospace; font-size:0.8rem; color:var(--clr-text-muted)">${billNo}</td>
-        <td>
-          <div style="font-weight:600">${b.guestName}</div>
-          <div style="font-size:0.75rem; color:var(--clr-text-muted)">${b.phone}</div>
+        <td data-label="Bill #" style="font-family:monospace; font-size:0.8rem; color:var(--clr-text-muted)">${billNo}</td>
+        <td data-label="Guest">
+          <div style="text-align:right">
+            <div style="font-weight:600">${b.guestName}</div>
+            <div style="font-size:0.75rem; color:var(--clr-text-muted)">${b.phone}</div>
+          </div>
         </td>
-        <td><span style="font-weight:700; color:var(--clr-primary)">Room ${b.roomNumber}</span></td>
-        <td>${formatDate(b.checkIn, true)}</td>
-        <td>${formatDate(b.checkOut, true)}</td>
-        <td style="font-weight:600">${nights}</td>
-        <td><span class="badge badge-primary">${b.source||'Direct'}</span></td>
-        <td style="font-weight:600">${formatCurrency(b.fullPrice)}</td>
-        <td style="color:var(--clr-success); font-weight:600">${formatCurrency(b.advancePaid||0)}</td>
-        <td style="font-weight:700; color:${rem<=0?'var(--clr-success)':'var(--clr-accent)'}">${formatCurrency(Math.max(0,rem))}</td>
-        <td style="color:${statusColor}; font-weight:600; font-size:0.8rem; white-space:nowrap">${statusLabel}</td>
-        <td>
-          <div class="flex gap-1">
+        <td data-label="Room"><span style="font-weight:700; color:var(--clr-primary)">Room ${b.roomNumber}</span></td>
+        <td data-label="Check-In">${formatDate(b.checkIn, true)}</td>
+        <td data-label="Check-Out">${formatDate(b.checkOut, true)}</td>
+        <td data-label="Nights" style="font-weight:600">${nights}</td>
+        <td data-label="Source"><span class="badge badge-primary">${b.source||'Direct'}</span></td>
+        <td data-label="Full Price" style="font-weight:600">${formatCurrency(b.fullPrice)}</td>
+        <td data-label="Advance" style="color:var(--clr-success); font-weight:600">${formatCurrency(b.advancePaid||0)}</td>
+        <td data-label="Remaining" style="font-weight:700; color:${rem<=0?'var(--clr-success)':'var(--clr-accent)'}">  ${formatCurrency(Math.max(0,rem))}</td>
+        <td data-label="Status" style="color:${statusColor}; font-weight:600; font-size:0.8rem; white-space:nowrap">${statusLabel}</td>
+        <td data-label="Actions">
+          <div class="flex gap-1" style="justify-content:flex-end">
             ${!isCancelled ? `<button class="btn btn-danger btn-sm delete-bill-btn" data-id="${b.id}" title="Delete">🗑</button>` : ''}
           </div>
         </td>

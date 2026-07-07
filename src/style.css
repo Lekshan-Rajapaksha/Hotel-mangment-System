@@ -91,6 +91,8 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* iOS safe area */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 button {
@@ -1524,51 +1526,351 @@ select.form-control {
   gap: 8px;
 }
 
-/* --- Responsive --- */
+/* ─────────────────────────────────────────────
+   RESPONSIVE — 1100px tablet landscape
+───────────────────────────────────────────── */
 @media (max-width: 1100px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid  { grid-template-columns: repeat(2, 1fr); }
   .charts-grid { grid-template-columns: 1fr; }
+
+  div[style*="grid-template-columns:1fr 1fr"] {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+  div[style*="grid-template-columns:repeat(3,1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
 }
 
+/* ─────────────────────────────────────────────
+   RESPONSIVE — 768px  phones + small tablets
+───────────────────────────────────────────── */
 @media (max-width: 768px) {
-  :root { 
-    --sidebar-w: 0px; 
+  :root {
+    --sidebar-w: 0px;
     --sidebar-w-collapsed: 0px;
   }
 
-  .mobile-header { display: flex; }
+  /* ── Mobile top bar — glassmorphism strip ── */
+  .mobile-header {
+    display: flex;
+    height: 54px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--clr-border);
+    padding: 0 14px;
+    gap: 12px;
+    box-shadow: 0 2px 12px rgba(30,45,78,0.08);
+  }
+  .hamburger {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--clr-surface-2);
+    border: 1px solid var(--clr-border);
+    font-size: 1rem;
+  }
 
+  /* ── Sidebar drawer ── */
   .sidebar {
     transform: translateX(-100%);
     width: 260px;
     transition: transform var(--dur-slow) var(--ease);
     z-index: 102;
+    box-shadow: var(--shadow-lg);
   }
-
-  .sidebar.open { transform: translateX(0); }
+  .sidebar.open          { transform: translateX(0); }
   .sidebar-backdrop.open { display: block; }
+  .sidebar.collapsed     { width: 260px; }
 
-  .main-content {
-    margin-left: 0;
-    padding-top: 60px;
-  }
-
+  .main-content,
   .sidebar.collapsed ~ .main-content {
     margin-left: 0;
+    padding-top: 54px;
   }
 
-  .page-header { padding: 16px 16px 0; }
-  .page-body   { padding: 0 16px 24px; }
+  /* ── Page header — compact ── */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 12px 0;
+    margin-bottom: 12px;
+  }
+  .page-header > div:last-child { width: 100%; flex-wrap: wrap; gap: 8px; }
+  .page-title { font-size: 1.15rem; }
 
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .form-row, .form-row-3 { grid-template-columns: 1fr; }
-  .modal { border-radius: var(--radius-lg); }
+  .page-body { padding: 0 12px 20px; }
+
+  /* ── Stat cards — horizontal pill strip ── */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .stat-card {
+    padding: 12px 10px;
+    gap: 10px;
+    border-radius: var(--radius);
+    flex-direction: row;
+    align-items: center;
+  }
+  .stat-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .stat-label { font-size: 0.65rem; margin-bottom: 2px; }
+  .stat-value { font-size: 1.1rem; }
+  .stat-sub   { font-size: 0.65rem; }
+
+  /* ── Charts ── */
+  .charts-grid { grid-template-columns: 1fr; gap: 10px; }
+  .chart-card  { padding: 14px; border-radius: var(--radius); }
+  .chart-card-title { font-size: 0.82rem; margin-bottom: 10px; }
+  .chart-card canvas { max-height: 180px; }
+
+  div[style*="grid-template-columns:1fr 1fr"] {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* ── Bills summary strip ── */
+  div[style*="grid-template-columns:repeat(3,1fr)"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* ── Search + filter bar ── */
+  .search-bar { max-width: 100%; width: 100%; }
+
+  /* ── Data table → premium card rows ── */
+  .data-table,
+  .data-table thead,
+  .data-table tbody,
+  .data-table th,
+  .data-table td,
+  .data-table tr { display: block; }
+
+  .data-table thead { display: none; }
+
+  .data-table tbody tr {
+    background: var(--clr-surface);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow-sm);
+    animation: fadeIn 0.18s ease;
+    position: relative;
+  }
+  .data-table tbody tr:hover {
+    background: var(--clr-surface-2);
+    border-color: var(--clr-primary);
+    box-shadow: 0 0 0 2px var(--clr-primary-dim);
+  }
+  .data-table td {
+    padding: 4px 0;
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    border-bottom: 1px solid rgba(226,232,244,0.6);
+  }
+  .data-table td:first-child { padding-top: 0; }
+  .data-table td:last-child  { border-bottom: none; padding-bottom: 0; }
+  .data-table td::before {
+    content: attr(data-label);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--clr-text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .card > div[style*="overflow-x"] { overflow-x: visible; }
+
+  /* ── Calendar — compact & swipeable ── */
   .cal-wrapper { border-radius: var(--radius); }
+
+  .cal-toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 10px 10px 8px;
+    background: var(--clr-surface);
+  }
+  .cal-nav {
+    display: flex;
+    gap: 4px;
+    order: 1;
+  }
+  .cal-nav-btn {
+    width: 30px; height: 30px;
+    font-size: 0.72rem;
+    border-radius: 8px;
+  }
+  #cal-today-btn {
+    width: auto !important;
+    padding: 0 8px !important;
+    font-size: 0.72rem !important;
+    height: 30px;
+    border-radius: 8px;
+  }
+  .cal-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    order: 2;
+    flex: 1;
+    text-align: center;
+  }
+  .view-toggle {
+    order: 3;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .view-toggle-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  /* Calendar cells — tighter & readable */
+  .cal-cell { height: 48px; }
+  .cal-cell-info { inset: 2px; padding: 2px 3px; gap: 0; }
+  .cal-cell-name { font-size: 0.64rem; }
+  .cal-cell-sub  { font-size: 0.58rem; }
+  .cal-header-cell { padding: 6px 4px; font-size: 0.65rem; }
+  .cal-room-label  { padding: 4px 6px; font-size: 0.78rem; min-width: 32px; width: 32px; justify-content: center; }
+  .cal-room-icon   { display: none; }
+  .cal-room-word   { display: none; }
+  .cal-room-num {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--clr-primary);
+    background: var(--clr-primary-dim);
+    border-radius: 6px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+  .cal-scroll      { max-height: calc(100vh - 290px); }
+  .cal-grid        { min-width: 400px; }
+
+
+  /* ── Modal — bottom sheet feel ── */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 92vh;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  .modal-lg { max-width: 100%; }
+  .modal-header {
+    padding: 14px 16px 0;
+    /* drag handle */
+    position: relative;
+  }
+  .modal-header::before {
+    content: '';
+    display: block;
+    width: 36px; height: 4px;
+    background: var(--clr-border-2);
+    border-radius: 2px;
+    margin: 0 auto 12px;
+  }
+  .modal-title { font-size: 1rem; }
+  .modal-body  { padding: 14px 16px; }
+  .modal-footer {
+    padding: 12px 16px 16px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .modal-footer .btn { flex: 1; min-width: 0; font-size: 0.82rem; padding: 10px 8px; }
+
+  /* ── Booking form ── */
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  .form-label { font-size: 0.72rem; }
+  .form-control { font-size: 0.85rem; padding: 8px 12px; }
+
+  /* ── Room Summary ── */
+  .rs-rooms-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .rs-room-card { padding: 12px; }
+  .rs-toggle-group { width: 100%; }
+  .rs-toggle-btn { flex: 1; padding: 7px 4px; font-size: 0.75rem; }
+  .rs-yearly-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .rs-yearly-single-card { padding: 12px; }
+  .rs-room-badge { font-size: 0.8rem; padding: 3px 10px; }
+
+  /* ── Toast — full-width at bottom ── */
+  #toast-container { bottom: 10px; right: 10px; left: 10px; }
+  .toast {
+    min-width: unset;
+    width: 100%;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 0.82rem;
+  }
 }
 
+/* ─────────────────────────────────────────────
+   RESPONSIVE — 480px  small phones
+───────────────────────────────────────────── */
 @media (max-width: 480px) {
-  .stats-grid { grid-template-columns: 1fr; }
+  .page-title { font-size: 1rem; }
+  .page-header { padding: 10px 10px 0; gap: 8px; }
+  .page-body   { padding: 0 10px 16px; }
+
+  /* Stat cards — full single column on very small screens */
+  .stats-grid { grid-template-columns: 1fr; gap: 6px; }
+  .stat-card  { padding: 10px 12px; }
+  .stat-value { font-size: 1.05rem; }
+
+  /* Bills summary strip — 1 col */
+  div[style*="grid-template-columns:repeat(3,1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Room summary — single col */
+  .rs-rooms-grid { grid-template-columns: 1fr; gap: 6px; }
+  .rs-yearly-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Calendar cells even tighter */
+  .cal-cell { height: 40px; }
+  .cal-cell-name { font-size: 0.6rem; }
+  .cal-cell-sub  { display: none; }
+  .cal-today-badge { display: none; }
+  .cal-grid { min-width: 320px; }
+  .cal-room-label { min-width: 26px; width: 26px; padding: 2px 4px; }
+  .cal-room-num { font-size: 0.72rem; padding: 1px 4px; }
+
+
+  /* Modal footer stack */
+  .modal-footer { flex-direction: column; }
+  .modal-footer .btn { width: 100%; }
+
+  /* Print bill */
+  .print-bill { padding: 16px; }
+  .print-header { flex-direction: column; gap: 10px; }
+  .print-hotel-name { font-size: 1.2rem; }
+  .print-info-grid { grid-template-columns: 1fr; }
 }
+
+
 
 /* --- Animate row fade-in --- */
 .data-table tbody tr {
