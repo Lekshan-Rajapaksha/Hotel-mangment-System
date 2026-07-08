@@ -27,14 +27,13 @@ export function openPrintBill(booking) {
 
             <!-- Header -->
             <div class="print-header">
-              <div>
-                <div class="print-hotel-name"><img src="${logoImg}" alt="Blue Cove Hiriketiya" class="print-hotel-logo" /> Blue Cove Hiriketiya</div>
-                <div class="print-hotel-sub">Premium Beach Front Hotel</div>
-                <div class="print-hotel-sub" style="margin-top:2px">📞 +94 XX XXX XXXX · 📍 Hiriketiya, Sri Lanka</div>
+              <div class="print-hotel-left">
+                <img src="${logoImg}" alt="Blue Cove Hiriketiya" class="print-hotel-logo" />
               </div>
               <div class="print-bill-no">
                 <strong>${billNo}</strong>
                 Invoice Date<br/>${today}
+                <div class="print-bill-phone">📞 +94 XX XXX XXXX</div>
               </div>
             </div>
 

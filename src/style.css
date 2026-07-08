@@ -1237,21 +1237,24 @@ select.form-control {
   border-bottom: 3px solid #4f72f5;
 }
 
+.print-hotel-left {
+  display: flex;
+  flex-direction: column;
+}
+
 .print-hotel-name {
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   font-weight: 800;
   color: #4f72f5;
-  line-height: 1.1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  line-height: 1.2;
+  margin-top: 10px;
 }
 
 .print-hotel-logo {
-  width: 48px;
-  height: 48px;
+  width: 100px;
+  height: 100px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 
@@ -1272,6 +1275,14 @@ select.form-control {
   font-size: 1.1rem;
   color: #1a1a2e;
   font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.print-bill-phone {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  color: #1a1a2e;
+  font-weight: 600;
 }
 
 .print-section-title {
