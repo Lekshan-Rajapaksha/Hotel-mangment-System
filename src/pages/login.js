@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase.js';
 import { getUserRole } from '../services/userService.js';
 import { showSpinner, hideSpinner } from '../utils/toast.js';
+import logoImg from '../assets/Blue cove hiriketiya (1).png';
 
 export function renderLogin(onSuccess) {
   const app = document.getElementById('app');
@@ -12,7 +13,7 @@ export function renderLogin(onSuccess) {
       <div class="login-bg-orb login-bg-orb-2"></div>
       <div class="login-card">
         <div class="login-logo">
-          <div class="login-logo-icon">🏨</div>
+          <div class="login-logo-icon"><img src="${logoImg}" alt="Blue Cove Hiriketiya Logo" class="login-logo-img" /></div>
           <div>
             <div class="login-logo-name">Blue Cove Hiriketiya</div>
             <div class="login-logo-sub">Hotel Management System</div>

@@ -3,6 +3,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebase.js';
 import { showToast } from '../utils/toast.js';
 import { subscribePendingCount } from '../services/deleteRequestService.js';
+import logoImg from '../assets/Blue cove hiriketiya (1).png';
 
 const COLLAPSED_KEY = 'sidebar_collapsed';
 
@@ -38,7 +39,7 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
 
       <!-- Brand + Collapse toggle -->
       <div class="sidebar-brand">
-        <div class="sidebar-brand-icon">🏨</div>
+        <div class="sidebar-brand-icon"><img src="${logoImg}" alt="Blue Cove Logo" class="sidebar-brand-img" /></div>
         <div class="sidebar-brand-text">
           <div class="sidebar-brand-name">Blue Cove</div>
           <div class="sidebar-brand-sub">${isAdmin ? 'Admin Panel' : 'Reception'}</div>

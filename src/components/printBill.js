@@ -1,5 +1,6 @@
 // src/components/printBill.js — Printable bill generator
 import { formatCurrency, formatDate, nightCount } from '../utils/dateHelpers.js';
+import logoImg from '../assets/Blue cove hiriketiya (1).png';
 
 export function openPrintBill(booking) {
   const b = booking;
@@ -27,7 +28,7 @@ export function openPrintBill(booking) {
             <!-- Header -->
             <div class="print-header">
               <div>
-                <div class="print-hotel-name">🏨 Blue Cove Hiriketiya</div>
+                <div class="print-hotel-name"><img src="${logoImg}" alt="Blue Cove Hiriketiya" class="print-hotel-logo" /> Blue Cove Hiriketiya</div>
                 <div class="print-hotel-sub">Premium Beach Front Hotel</div>
                 <div class="print-hotel-sub" style="margin-top:2px">📞 +94 XX XXX XXXX · 📍 Hiriketiya, Sri Lanka</div>
               </div>
