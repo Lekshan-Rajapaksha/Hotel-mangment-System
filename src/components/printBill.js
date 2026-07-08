@@ -29,9 +29,6 @@ export function openPrintBill(booking) {
             <div class="print-header">
               <div class="print-hotel-left">
                 <img src="${logoImg}" alt="Blue Cove Hiriketiya" class="print-hotel-logo" />
-                <div class="print-hotel-name">Blue Cove Hiriketiya</div>
-                <div class="print-hotel-sub">Premium Beach Front Hotel</div>
-                <div class="print-hotel-sub">📍 Hiriketiya, Sri Lanka</div>
               </div>
               <div class="print-bill-no">
                 <strong>${billNo}</strong>
