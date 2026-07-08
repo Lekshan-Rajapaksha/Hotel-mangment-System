@@ -1,0 +1,75 @@
+name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main          # Deploy on every push to main
+  pull_request:
+    branches:
+      - main          # Create a preview channel for every PR
+
+jobs:
+  # ────────────────────────────────────────────────
+  # Job 1: Build & Deploy to LIVE on push to main
+  # ────────────────────────────────────────────────
+  deploy_live:
+    name: Build & Deploy (Live)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite app
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting (Live)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: blue-cove-hiriketiya
+
+  # ────────────────────────────────────────────────
+  # Job 2: Build & Deploy PREVIEW on Pull Requests
+  # ────────────────────────────────────────────────
+  deploy_preview:
+    name: Build & Deploy (Preview)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite app
+        run: npm run build
+
+      - name: Deploy Preview Channel
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: blue-cove-hiriketiya
+          # Previews auto-expire after 7 days
+          expires: 7d
