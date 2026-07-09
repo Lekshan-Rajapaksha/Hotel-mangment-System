@@ -13,11 +13,7 @@ export function renderLogin(onSuccess) {
       <div class="login-bg-orb login-bg-orb-2"></div>
       <div class="login-card">
         <div class="login-logo">
-          <div class="login-logo-icon"><img src="${logoImg}" alt="Blue Cove Hiriketiya Logo" class="login-logo-img" /></div>
-          <div>
-            <div class="login-logo-name">Blue Cove Hiriketiya</div>
-            <div class="login-logo-sub">Hotel Management System</div>
-          </div>
+          <div class="login-logo-icon"><img src="${logoImg}" alt="Hotel logo" class="login-logo-img" /></div>
         </div>
 
         <div class="login-error" id="login-error"></div>
