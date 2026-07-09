@@ -36,8 +36,6 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
 
   const html = `
     <aside class="sidebar ${isCollapsed ? 'collapsed' : ''}" id="main-sidebar">
-
-      <!-- Brand + Collapse toggle -->
       <div class="sidebar-brand">
         <div class="sidebar-brand-icon"><img src="${logoImg}" alt="Blue Cove Logo" class="sidebar-brand-img" /></div>
         <div class="sidebar-brand-text">
@@ -50,11 +48,14 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
       </div>
 
       <nav class="sidebar-nav">
-        <div class="sidebar-section-label">Navigation</div>
-        ${linksHTML}
+        <div class="sidebar-nav-group">
+          <div class="sidebar-section-label">${isAdmin ? 'Admin workspace' : 'Reception workspace'}</div>
+          ${linksHTML}
+        </div>
       </nav>
 
       <div class="sidebar-footer">
+        <div class="sidebar-section-label sidebar-footer-label">Account</div>
         <div class="sidebar-user">
           <div class="sidebar-user-avatar">${initials}</div>
           <div class="sidebar-user-info">

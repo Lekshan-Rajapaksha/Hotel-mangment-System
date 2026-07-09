@@ -470,7 +470,8 @@ select.form-control {
 .sidebar.collapsed .sidebar-link-text,
 .sidebar.collapsed .sidebar-section-label,
 .sidebar.collapsed .sidebar-user-info,
-.sidebar.collapsed .sidebar-brand-sub {
+.sidebar.collapsed .sidebar-brand-sub,
+.sidebar.collapsed .sidebar-footer-label {
   opacity: 0;
   width: 0;
   overflow: hidden;
@@ -488,7 +489,7 @@ select.form-control {
 
 .sidebar.collapsed .sidebar-brand {
   justify-content: center;
-  padding: 20px 0;
+  padding: 18px 0;
 }
 
 .sidebar.collapsed .sidebar-user {
@@ -550,19 +551,19 @@ select.form-control {
 }
 
 .sidebar-brand {
-  padding: 20px 20px;
+  padding: 18px 18px 17px;
   display: flex;
   align-items: center;
   gap: 14px;
   border-bottom: 1.5px solid var(--clr-border);
   flex-shrink: 0;
-  min-height: 76px;
+  min-height: 72px;
   transition: padding var(--dur-slow) var(--ease);
 }
 
 .sidebar-brand-icon {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-sm);
   background: transparent;
   display: flex;
@@ -584,7 +585,7 @@ select.form-control {
 }
 
 .sidebar-brand-name {
-  font-size: 0.95rem;
+  font-size: 0.98rem;
   font-weight: 800;
   color: var(--clr-text);
   white-space: nowrap;
@@ -595,26 +596,32 @@ select.form-control {
   font-size: 0.72rem;
   color: var(--clr-text-muted);
   white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 16px 12px;
+  padding: 18px 12px 12px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--clr-border-2) transparent;
 }
 
+.sidebar-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .sidebar-section-label {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--clr-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 700;
-  padding: 12px 12px 6px;
+  padding: 6px 12px 8px;
   white-space: nowrap;
 }
 
@@ -631,7 +638,7 @@ select.form-control {
   cursor: pointer;
   white-space: nowrap;
   border: 1px solid transparent;
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 
 .sidebar-link:hover {
@@ -699,20 +706,25 @@ select.form-control {
 
 
 .sidebar-footer {
-  padding: 16px 12px;
+  padding: 12px 12px 16px;
   border-top: 1.5px solid var(--clr-border);
   flex-shrink: 0;
+}
+
+.sidebar-footer-label {
+  padding-top: 0;
+  padding-bottom: 8px;
 }
 
 .sidebar-user {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 11px 12px;
   border-radius: var(--radius-sm);
   background: var(--clr-surface-2);
   border: 1.5px solid var(--clr-border);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .sidebar-user-avatar {
@@ -749,6 +761,31 @@ select.form-control {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.sidebar.collapsed .sidebar-nav {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.sidebar.collapsed .sidebar-nav-group {
+  gap: 4px;
+}
+
+.sidebar.collapsed .sidebar-section-label {
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+}
+
+.sidebar.collapsed .sidebar-footer-label {
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+}
+
+.sidebar.collapsed .sidebar-user {
+  width: 100%;
 }
 
 /* --- Mobile Hamburger --- */
@@ -1461,13 +1498,13 @@ select.form-control {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 36px;
+  gap: 0;
+  margin-bottom: 32px;
 }
 
 .login-logo-icon {
-  width: 90px;
-  height: 90px;
+  width: 172px;
+  height: 172px;
   border-radius: var(--radius-lg);
   background: transparent;
   display: flex;
@@ -1481,22 +1518,6 @@ select.form-control {
   height: 100%;
   object-fit: contain;
   border-radius: var(--radius-lg);
-}
-
-.login-logo-name {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--clr-text);
-  text-align: center;
-  line-height: 1.2;
-}
-
-.login-logo-sub {
-  font-size: 0.78rem;
-  color: var(--clr-text-muted);
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .login-error {
