@@ -49,7 +49,7 @@ export function renderMyBookingsPage(container) {
   `;
 
   document.getElementById('new-booking-btn2')?.addEventListener('click', () => {
-    openBookingModal({ onSaved: () => {} });
+    openBookingModal({ allBookings, onSaved: () => {} });
   });
 
   document.getElementById('booking-search')?.addEventListener('input', (e) => {
@@ -112,7 +112,7 @@ function renderTable(bookings) {
   document.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const booking = bookings.find(b => b.id === btn.dataset.id);
-      if (booking) openBookingModal({ booking, onSaved: () => {} });
+      if (booking) openBookingModal({ booking, allBookings: bookings, onSaved: () => {} });
     });
   });
 

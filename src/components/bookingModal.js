@@ -7,9 +7,11 @@ import { openPrintBill } from './printBill.js';
 let modalEl = null;
 let currentBooking = null;
 let onSavedCallback = null;
+let _allBookings = []; // cache of all active bookings for conflict detection
 
 export function openBookingModal(opts = {}) {
-  const { booking = null, defaultRoom = 1, defaultDate = null, onSaved = () => {} } = opts;
+  const { booking = null, defaultRoom = 1, defaultDate = null, onSaved = () => {}, allBookings = [] } = opts;
+  _allBookings = allBookings;
   currentBooking = booking;
   onSavedCallback = onSaved;
 
@@ -180,6 +182,18 @@ export function openBookingModal(opts = {}) {
               🌙 <span id="nights-text">Calculating nights...</span>
             </div>
 
+            <!-- Availability warning -->
+            <div id="bk-avail-warning" style="
+              display:none; padding:12px 16px;
+              background:rgba(239,68,68,0.12);
+              border:1px solid rgba(239,68,68,0.4); border-radius:8px;
+              font-size:0.84rem; color:#ef4444; font-weight:600;
+              margin-bottom:14px; align-items:flex-start; gap:10px;
+            ">
+              <span style="font-size:1.2rem;line-height:1">🚫</span>
+              <span id="bk-avail-msg"></span>
+            </div>
+
             <div class="divider"></div>
 
             <!-- === PRICING === -->
@@ -240,6 +254,7 @@ export function openBookingModal(opts = {}) {
   bindModalEvents();
   updateNights();
   updateRemaining();
+  updateAvailabilityWarning();
 }
 
 function renderGuestRow(index, data = {}) {
@@ -271,10 +286,17 @@ function bindModalEvents() {
   document.getElementById('bk-checkin')?.addEventListener('change', () => {
     updateNights();
     syncOccasionDateLimits();
+    updateAvailabilityWarning();
   });
   document.getElementById('bk-checkout')?.addEventListener('change', () => {
     updateNights();
     syncOccasionDateLimits();
+    updateAvailabilityWarning();
+  });
+
+  // Recheck availability when room changes
+  document.getElementById('bk-room')?.addEventListener('change', () => {
+    updateAvailabilityWarning();
   });
 
   // Remaining update
@@ -340,6 +362,69 @@ function closeModal() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Availability / conflict helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the booked date ranges for a given room, excluding the booking
+ * currently being edited (so edits don't self-conflict).
+ */
+function getBookedRangesForRoom(roomNumber) {
+  return _allBookings
+    .filter(b => b.roomNumber === roomNumber && b.id !== currentBooking?.id)
+    .map(b => ({
+      checkIn:  toDateStr(b.checkIn?.toDate  ? b.checkIn.toDate()  : new Date(b.checkIn)),
+      checkOut: toDateStr(b.checkOut?.toDate ? b.checkOut.toDate() : new Date(b.checkOut)),
+      guestName: b.guestName
+    }));
+}
+
+/**
+ * Returns the conflicting booking if the proposed [newCheckIn, newCheckOut)
+ * overlaps any existing range, or null if available.
+ */
+function checkDateConflict(roomNumber, newCheckIn, newCheckOut) {
+  if (!newCheckIn || !newCheckOut) return null;
+  const ranges = getBookedRangesForRoom(roomNumber);
+  for (const r of ranges) {
+    // Overlap condition: newCheckIn < existingCheckOut AND newCheckOut > existingCheckIn
+    if (newCheckIn < r.checkOut && newCheckOut > r.checkIn) {
+      return r;
+    }
+  }
+  return null;
+}
+
+/**
+ * Shows or hides the availability warning banner inside the modal.
+ */
+function updateAvailabilityWarning() {
+  const roomEl    = document.getElementById('bk-room');
+  const checkIn   = document.getElementById('bk-checkin')?.value;
+  const checkOut  = document.getElementById('bk-checkout')?.value;
+  const warningEl = document.getElementById('bk-avail-warning');
+  const saveBtn   = document.getElementById('booking-save-btn');
+  if (!warningEl || !saveBtn) return;
+
+  const room = parseInt(roomEl?.value || '0');
+  const conflict = checkDateConflict(room, checkIn, checkOut);
+
+  if (conflict) {
+    warningEl.style.display = 'flex';
+    warningEl.querySelector('#bk-avail-msg').textContent =
+      `Room ${room} is already booked by "${conflict.guestName}" from ${conflict.checkIn} to ${conflict.checkOut}. Please choose different dates or a different room.`;
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = '0.5';
+    saveBtn.style.cursor = 'not-allowed';
+  } else {
+    warningEl.style.display = 'none';
+    saveBtn.disabled = false;
+    saveBtn.style.opacity = '';
+    saveBtn.style.cursor = '';
+  }
+}
+
 function updateNights() {
   const ci = document.getElementById('bk-checkin')?.value;
   const co = document.getElementById('bk-checkout')?.value;
@@ -395,6 +480,15 @@ async function saveBooking(andPrint = false) {
   if (!checkIn || !checkOut) { showToast('Please select dates', 'error'); return; }
   if (new Date(checkOut) <= new Date(checkIn)) { showToast('Check-out must be after check-in', 'error'); return; }
   if (!fullPrice || fullPrice <= 0) { showToast('Please enter the full price', 'error'); return; }
+
+  // Final conflict guard (in case UI warning was somehow bypassed)
+  const roomNum = parseInt(document.getElementById('bk-room')?.value);
+  const conflict = checkDateConflict(roomNum, checkIn, checkOut);
+  if (conflict) {
+    showToast(`Room ${roomNum} is already booked by "${conflict.guestName}" (${conflict.checkIn} → ${conflict.checkOut}). Choose different dates or room.`, 'error');
+    updateAvailabilityWarning();
+    return;
+  }
 
   const advancePaid = parseFloat(document.getElementById('bk-advance')?.value) || 0;
 

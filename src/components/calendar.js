@@ -311,6 +311,7 @@ function handleCellClick(cell) {
     } else {
       openBookingModal({
         booking,
+        allBookings,
         onSaved: () => {} // real-time listener will refresh
       });
     }
@@ -323,6 +324,7 @@ function handleCellClick(cell) {
     openBookingModal({
       defaultRoom: room,
       defaultDate: date,
+      allBookings,
       onSaved: () => {}
     });
   }
