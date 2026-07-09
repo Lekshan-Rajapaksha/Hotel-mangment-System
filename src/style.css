@@ -1240,10 +1240,98 @@ select.form-control {
 }
 
 /* --- Print Styles --- */
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
 @media print {
-  body { background: #fff !important; color: #000 !important; }
-  .no-print { display: none !important; }
-  .print-bill { display: block !important; }
+  html, body {
+    width: 210mm;
+    margin: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body > *:not(#print-bill-overlay) {
+    display: none !important;
+  }
+
+  #print-bill-overlay {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    background: #fff !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+  }
+
+  #print-bill-overlay .modal {
+    max-width: none !important;
+    width: 100% !important;
+    max-height: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  #print-bill-overlay .modal-body {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .no-print,
+  .modal-header.no-print {
+    display: none !important;
+  }
+
+  .print-bill {
+    display: block !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 14mm 16mm 12mm !important;
+    color: #111827 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-bill * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-header {
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+  }
+
+  .print-hotel-logo {
+    width: 84px;
+    height: 84px;
+  }
+
+  .print-section-title {
+    margin-bottom: 8px;
+  }
+
+  .print-info-grid {
+    gap: 8px 18px;
+    margin-bottom: 16px;
+  }
+
+  .print-table {
+    margin-bottom: 16px;
+  }
+
+  .print-totals {
+    margin-bottom: 20px;
+  }
+
+  .print-footer {
+    margin-top: 24px;
+    padding-top: 12px;
+  }
+
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
@@ -1331,7 +1419,6 @@ select.form-control {
   margin-bottom: 24px;
 }
 
-.print-info-item {}
 .print-info-label { font-size: 0.72rem; color: #64748b; font-weight: 600; }
 .print-info-value { font-size: 0.9rem; color: #1a1a2e; font-weight: 600; }
 

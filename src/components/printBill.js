@@ -115,11 +115,6 @@ export function openPrintBill(booking) {
                   <td colspan="3">${getMealLabel(b.meals)} (Included)</td>
                   <td>Included</td>
                 </tr>` : ''}
-                ${b.specialBirthday ? `
-                <tr>
-                  <td colspan="3">🎂 Birthday / Anniversary Setup</td>
-                  <td>Complimentary</td>
-                </tr>` : ''}
               </tbody>
             </table>
 
