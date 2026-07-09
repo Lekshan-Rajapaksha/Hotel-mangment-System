@@ -62,40 +62,6 @@ export function openPrintBill(booking) {
                 <div class="print-info-label">Booking Source</div>
                 <div class="print-info-value">${b.source || 'Direct'}</div>
               </div>
-              ${b.specialBirthday ? `
-              <div class="print-info-item">
-                <div class="print-info-label">Special Occasion</div>
-                <div class="print-info-value">🎂 Birthday / Anniversary</div>
-              </div>` : ''}
-            </div>
-
-            <!-- Stay Details -->
-            <div class="print-section-title">STAY DETAILS</div>
-            <div class="print-info-grid" style="margin-bottom:20px">
-              <div class="print-info-item">
-                <div class="print-info-label">Room Number</div>
-                <div class="print-info-value">Room ${b.roomNumber}</div>
-              </div>
-              <div class="print-info-item">
-                <div class="print-info-label">Room Type</div>
-                <div class="print-info-value">${b.acType} · ${b.bedType} Bed</div>
-              </div>
-              <div class="print-info-item">
-                <div class="print-info-label">Check-In</div>
-                <div class="print-info-value">${formatDate(b.checkIn, true)}</div>
-              </div>
-              <div class="print-info-item">
-                <div class="print-info-label">Check-Out</div>
-                <div class="print-info-value">${formatDate(b.checkOut, true)}</div>
-              </div>
-              <div class="print-info-item">
-                <div class="print-info-label">Duration</div>
-                <div class="print-info-value">${nights} Night${nights > 1 ? 's' : ''}</div>
-              </div>
-              <div class="print-info-item">
-                <div class="print-info-label">Meal Plan</div>
-                <div class="print-info-value">${getMealLabel(b.meals)}</div>
-              </div>
             </div>
 
             ${b.additionalGuests?.length ? `
@@ -133,11 +99,6 @@ export function openPrintBill(booking) {
                 <tr>
                   <td colspan="3">${getMealLabel(b.meals)} (Included)</td>
                   <td>Included</td>
-                </tr>` : ''}
-                ${b.specialBirthday ? `
-                <tr>
-                  <td colspan="3">🎂 Birthday / Anniversary Setup</td>
-                  <td>Complimentary</td>
                 </tr>` : ''}
               </tbody>
             </table>
