@@ -1239,6 +1239,173 @@ select.form-control {
   right: 3px;
 }
 
+/* ============================================
+   ADMIN CALENDAR — Compact Mobile-First Grid
+   ============================================ */
+
+/* Admin wrapper: weekly never scrolls; monthly/yearly scroll when needed */
+.admin-cal .cal-scroll {
+  overflow-x: auto;   /* weekly fills screen; monthly/yearly scroll gently */
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.admin-cal .cal-grid {
+  min-width: unset;    /* kill the 700px floor */
+  width: 100%;
+}
+
+/* Admin header cells — compact, colored DOW */
+.admin-cal .cal-header-cell {
+  padding: 5px 2px;
+  font-size: 0.65rem;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Admin room label — tiny number column */
+.admin-room-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px;
+  gap: 3px;
+  background: var(--clr-surface-2);
+  border-right: 1.5px solid var(--clr-border);
+  border-bottom: 1px solid var(--clr-border);
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  white-space: nowrap;
+}
+
+.admin-room-label .cal-room-num {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--clr-text);
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Color dot per room */
+.admin-room-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: block;
+}
+
+/* Admin cells — very compact, square-ish */
+.admin-cal .cal-cell,
+.admin-cell {
+  height: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Override: booked admin cells use inline style colour, not the default gradient */
+.admin-cal .cal-cell.booked {
+  background: none; /* inline style from JS takes over */
+}
+
+/* Occasion badge inside admin cells — centered, larger emoji */
+.admin-occasion {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  line-height: 1;
+  font-size: 0.78rem;
+}
+
+.admin-occasion .cal-occasion-badge {
+  font-size: 0.78rem;
+}
+
+/* Today accent still shows as left border */
+.admin-cal .cal-cell.today-col {
+  border-left: 2px solid var(--clr-primary);
+}
+
+/* Mobile-specific admin calendar overrides */
+@media (max-width: 768px) {
+  .admin-cal .cal-scroll {
+    overflow-x: auto;
+    max-height: calc(100vh - 250px);
+  }
+
+  .admin-cal .cal-grid {
+    min-width: unset;
+  }
+
+  .admin-cal .cal-header-cell {
+    padding: 4px 1px;
+    font-size: 0.58rem;
+  }
+
+  .admin-room-label {
+    min-width: 28px;
+    width: 28px;
+  }
+
+  .admin-room-dot {
+    width: 7px;
+    height: 7px;
+  }
+
+  .admin-room-label .cal-room-num {
+    font-size: 0.62rem;
+  }
+
+  .admin-cal .cal-cell,
+  .admin-cell {
+    height: 32px;
+    min-height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-cal .cal-scroll {
+    overflow-x: auto;
+    max-height: calc(100vh - 260px);
+  }
+
+  .admin-room-label {
+    min-width: 24px;
+    width: 24px;
+  }
+
+  .admin-room-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .admin-room-label .cal-room-num {
+    font-size: 0.58rem;
+  }
+
+  .admin-cal .cal-cell,
+  .admin-cell {
+    height: 28px;
+    min-height: 28px;
+  }
+
+  .admin-cal .cal-header-cell {
+    font-size: 0.52rem;
+    padding: 3px 1px;
+  }
+
+  .admin-occasion {
+    font-size: 0.68rem;
+  }
+}
+
 /* --- Print Styles --- */
 @page {
   size: A4 portrait;
@@ -1878,16 +2045,16 @@ select.form-control {
     font-weight: 600;
   }
 
-  /* Calendar cells — tighter & readable */
-  .cal-cell { height: 48px; }
+  /* Calendar cells — tighter & readable (receptionist only) */
+  .cal-wrapper:not(.admin-cal) .cal-cell { height: 48px; }
   .cal-cell-info { inset: 2px; padding: 2px 3px; gap: 0; }
   .cal-cell-name { font-size: 0.64rem; }
   .cal-cell-sub  { font-size: 0.58rem; }
-  .cal-header-cell { padding: 6px 4px; font-size: 0.65rem; }
-  .cal-room-label  { padding: 4px 6px; font-size: 0.78rem; min-width: 32px; width: 32px; justify-content: center; }
+  .cal-wrapper:not(.admin-cal) .cal-header-cell { padding: 6px 4px; font-size: 0.65rem; }
+  .cal-wrapper:not(.admin-cal) .cal-room-label  { padding: 4px 6px; font-size: 0.78rem; min-width: 32px; width: 32px; justify-content: center; }
   .cal-room-icon   { display: none; }
   .cal-room-word   { display: none; }
-  .cal-room-num {
+  .cal-wrapper:not(.admin-cal) .cal-room-num {
     font-size: 0.78rem;
     font-weight: 800;
     color: var(--clr-primary);
@@ -1896,8 +2063,8 @@ select.form-control {
     padding: 2px 6px;
     white-space: nowrap;
   }
-  .cal-scroll      { max-height: calc(100vh - 290px); }
-  .cal-grid        { min-width: 400px; }
+  .cal-wrapper:not(.admin-cal) .cal-scroll { max-height: calc(100vh - 290px); }
+  .cal-wrapper:not(.admin-cal) .cal-grid   { min-width: 400px; }
 
 
   /* ── Modal — bottom sheet feel ── */
@@ -1982,14 +2149,14 @@ select.form-control {
   .rs-rooms-grid { grid-template-columns: 1fr; gap: 6px; }
   .rs-yearly-grid { grid-template-columns: 1fr 1fr; }
 
-  /* Calendar cells even tighter */
-  .cal-cell { height: 40px; }
+  /* Calendar cells even tighter (receptionist only) */
+  .cal-wrapper:not(.admin-cal) .cal-cell { height: 40px; }
   .cal-cell-name { font-size: 0.6rem; }
   .cal-cell-sub  { display: none; }
   .cal-today-badge { display: none; }
-  .cal-grid { min-width: 320px; }
-  .cal-room-label { min-width: 26px; width: 26px; padding: 2px 4px; }
-  .cal-room-num { font-size: 0.72rem; padding: 1px 4px; }
+  .cal-wrapper:not(.admin-cal) .cal-grid { min-width: 320px; }
+  .cal-wrapper:not(.admin-cal) .cal-room-label { min-width: 26px; width: 26px; padding: 2px 4px; }
+  .cal-wrapper:not(.admin-cal) .cal-room-num { font-size: 0.72rem; padding: 1px 4px; }
 
 
   /* Modal footer stack */

@@ -11,6 +11,28 @@ import { deleteBooking } from '../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../utils/toast.js';
 
 const ROOMS = [1,2,3,4,5,6,7];
+
+// Per-room color palettes for admin compact view
+const ROOM_COLORS = [
+  { bg: 'linear-gradient(135deg,#4f72f5,#7c5cf6)', dot: '#4f72f5' }, // Room 1 — indigo/purple
+  { bg: 'linear-gradient(135deg,#f5692a,#f53e7a)', dot: '#f5692a' }, // Room 2 — orange/pink
+  { bg: 'linear-gradient(135deg,#22c55e,#16a34a)', dot: '#22c55e' }, // Room 3 — green
+  { bg: 'linear-gradient(135deg,#06b6d4,#0284c7)', dot: '#06b6d4' }, // Room 4 — cyan/blue
+  { bg: 'linear-gradient(135deg,#f59e0b,#d97706)', dot: '#f59e0b' }, // Room 5 — amber
+  { bg: 'linear-gradient(135deg,#ec4899,#a855f7)', dot: '#ec4899' }, // Room 6 — pink/violet
+  { bg: 'linear-gradient(135deg,#14b8a6,#0d9488)', dot: '#14b8a6' }, // Room 7 — teal
+];
+
+// DOW header colors for admin view (Sun-Sat)
+const DOW_COLORS = [
+  '#ef4444', // Sun — red
+  '#4f72f5', // Mon — blue
+  '#7c5cf6', // Tue — purple
+  '#22c55e', // Wed — green
+  '#f59e0b', // Thu — amber
+  '#06b6d4', // Fri — cyan
+  '#ec4899', // Sat — pink
+];
 let currentView = 'weekly';
 let currentRef = new Date();
 let bookingsMap = {}; // { "roomX_dateY": booking }
@@ -21,8 +43,10 @@ let isAdmin = false;
 export function renderCalendar(container, role) {
   isAdmin = role === 'admin';
 
+  const adminClass = isAdmin ? 'admin-cal' : '';
+
   const html = `
-    <div class="cal-wrapper" id="cal-wrapper">
+    <div class="cal-wrapper ${adminClass}" id="cal-wrapper">
       <div class="cal-toolbar">
         <div class="cal-nav">
           <button class="cal-nav-btn" id="cal-prev" title="Previous">◀</button>
@@ -160,12 +184,25 @@ function renderGrid() {
 
   // Build column count
   const cols = days.length;
-  const colsTemplate = `110px repeat(${cols}, minmax(100px, 1fr))`;
+
+  // Admin compact view: weekly fits all 7 days with no scroll; monthly/yearly allow a small scroll
+  let colsTemplate;
+  if (isAdmin) {
+    if (currentView === 'weekly') {
+      // 7 days — always fits on screen, no scroll needed
+      colsTemplate = `36px repeat(${cols}, minmax(0, 1fr))`;
+    } else {
+      // Monthly (28–31 cols) or yearly (12 cols) — allow a small scroll with min cell size
+      colsTemplate = `36px repeat(${cols}, minmax(28px, 1fr))`;
+    }
+  } else {
+    colsTemplate = `110px repeat(${cols}, minmax(100px, 1fr))`;
+  }
 
   let html = `<div class="cal-grid" style="grid-template-columns:${colsTemplate}">`;
 
   // --- Header row ---
-  html += `<div class="cal-header-cell" style="grid-column:1">Room</div>`;
+  html += `<div class="cal-header-cell" style="grid-column:1">#</div>`;
   days.forEach((day, i) => {
     let label = '';
     let isToday = false;
@@ -173,9 +210,16 @@ function renderGrid() {
       const d = day;
       const ds = toDateStr(d);
       isToday = ds === todayStr;
+      const dowIdx = d.getDay();
+      const dowColor = isAdmin ? DOW_COLORS[dowIdx] : 'inherit';
       const dayName = DAYS_SHORT[d.getDay()];
-      label = `<div style="font-weight:800">${d.getDate()}</div><div style="font-size:0.68rem;opacity:0.8">${dayName}</div>`;
-      if (isToday) label += `<div style="width:6px;height:6px;background:var(--clr-primary);border-radius:50%;margin:2px auto 0"></div>`;
+      if (isAdmin) {
+        label = `<div style="font-weight:800;font-size:0.7rem">${d.getDate()}</div><div style="font-size:0.6rem;font-weight:700;color:${dowColor}">${dayName}</div>`;
+        if (isToday) label += `<div style="width:5px;height:5px;background:var(--clr-primary);border-radius:50%;margin:1px auto 0"></div>`;
+      } else {
+        label = `<div style="font-weight:800">${d.getDate()}</div><div style="font-size:0.68rem;opacity:0.8">${dayName}</div>`;
+        if (isToday) label += `<div style="width:6px;height:6px;background:var(--clr-primary);border-radius:50%;margin:2px auto 0"></div>`;
+      }
     } else {
       label = `<div style="font-weight:800">${day.label}</div><div style="font-size:0.68rem;opacity:0.7">${day.year}</div>`;
     }
@@ -183,13 +227,25 @@ function renderGrid() {
   });
 
   // --- Room rows ---
-  ROOMS.forEach(room => {
-    html += `
-      <div class="cal-room-label" style="grid-column:1; grid-row:auto">
-        <span class="cal-room-icon">🚪</span>
-        <span class="cal-room-word">Room </span><span class="cal-room-num">${room}</span>
-      </div>
-    `;
+  ROOMS.forEach((room, roomIdx) => {
+    const roomColor = ROOM_COLORS[(roomIdx) % ROOM_COLORS.length];
+
+    if (isAdmin) {
+      // Admin: compact label — just the room number with room color dot
+      html += `
+        <div class="cal-room-label admin-room-label" style="grid-column:1; grid-row:auto">
+          <span class="admin-room-dot" style="background:${roomColor.dot}"></span>
+          <span class="cal-room-num">${room}</span>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="cal-room-label" style="grid-column:1; grid-row:auto">
+          <span class="cal-room-icon">🚪</span>
+          <span class="cal-room-word">Room </span><span class="cal-room-num">${room}</span>
+        </div>
+      `;
+    }
 
     days.forEach((day, i) => {
       let dateStr = '';
@@ -201,10 +257,6 @@ function renderGrid() {
         // For yearly: check if any booking exists in that month for that room
         dateStr = `${day.year}-${String(day.month+1).padStart(2,'0')}`;
       }
-
-      const key = currentView === 'yearly'
-        ? `room${room}_${dateStr}`
-        : `room${room}_${dateStr}`;
 
       // For yearly view: look for any booking in that month
       let booking = null;
@@ -221,25 +273,17 @@ function renderGrid() {
       }
 
       const isBooked = !!booking;
-      const cellClass = `cal-cell ${isBooked ? 'booked' : ''} ${isToday ? 'today-col' : ''}`;
 
-      let cellContent = '';
+      // Compute occasion badges (shared logic)
+      let occasionBadge = '';
       if (isBooked && booking) {
-        const acBed = `${booking.acType||'N/A'} · ${booking.bedType||'N/A'}`;
-        const meals = booking.meals && booking.meals !== 'None' ? ` · 🍽️ ${booking.meals}` : '';
-        const src = booking.source || '';
-
-        // Compute the last booked day (checkout - 1) as fallback for occasion date
         const checkOutDate = booking.checkOut?.toDate ? booking.checkOut.toDate() : new Date(booking.checkOut);
         const lastBookedDate = new Date(checkOutDate);
         lastBookedDate.setDate(lastBookedDate.getDate() - 1);
         const lastBookedStr = toDateStr(lastBookedDate);
 
-        // Resolve the effective display date for each occasion:
-        // use saved date if valid & within stay, otherwise fallback to last booked day
         const resolveDateStr = (savedDate) => {
           if (!savedDate) return lastBookedStr;
-          // If occasion date == checkout (not a booked cell), use last booked day
           const checkOutStr = toDateStr(checkOutDate);
           if (savedDate === checkOutStr) return lastBookedStr;
           return savedDate;
@@ -248,8 +292,6 @@ function renderGrid() {
         const bdayDisplayDate  = booking.specialBirthday    ? resolveDateStr(booking.birthdayDate)    : null;
         const annivDisplayDate = booking.specialAnniversary ? resolveDateStr(booking.anniversaryDate) : null;
 
-        // Build badge only if this cell's date matches the resolved occasion date
-        let occasionBadge = '';
         const isBdayCell  = bdayDisplayDate  && dateStr === bdayDisplayDate;
         const isAnnivCell = annivDisplayDate && dateStr === annivDisplayDate;
 
@@ -260,30 +302,61 @@ function renderGrid() {
         } else if (isAnnivCell) {
           occasionBadge = `<span class="cal-occasion-badge" title="Anniversary 💑">💑</span>`;
         }
+      }
 
-        cellContent = `
-          <div class="cal-cell-info">
-            <div class="cal-cell-name">${booking.guestName}${occasionBadge}</div>
-            <div class="cal-cell-sub">${src ? src + ' · ' : ''}${acBed}${meals}</div>
+      let cellContent = '';
+
+      if (isAdmin) {
+        // Admin compact view: no name, just room color block + occasion badge only
+        const bookedStyle = isBooked
+          ? `background:${roomColor.bg};`
+          : '';
+        const todayStyle = isToday && !isBooked ? 'background:#eef2ff;' : '';
+        const cellClass = `cal-cell admin-cell ${isBooked ? 'booked' : ''} ${isToday ? 'today-col' : ''}`;
+        if (isBooked && occasionBadge) {
+          cellContent = `<span class="admin-occasion">${occasionBadge}</span>`;
+        }
+        html += `
+          <div
+            class="${cellClass}"
+            data-room="${room}"
+            data-date="${dateStr}"
+            data-booking-id="${booking?.id || ''}"
+            title="${isBooked ? `${booking.guestName} · Room ${room}` : `Room ${room} · ${dateStr}`}"
+            style="${bookedStyle}${todayStyle}"
+          >
+            ${cellContent}
+          </div>
+        `;
+      } else {
+        // Standard receptionist view
+        const cellClass = `cal-cell ${isBooked ? 'booked' : ''} ${isToday ? 'today-col' : ''}`;
+        if (isBooked && booking) {
+          const acBed = `${booking.acType||'N/A'} · ${booking.bedType||'N/A'}`;
+          const meals = booking.meals && booking.meals !== 'None' ? ` · 🍽️ ${booking.meals}` : '';
+          const src = booking.source || '';
+          cellContent = `
+            <div class="cal-cell-info">
+              <div class="cal-cell-name">${booking.guestName}${occasionBadge}</div>
+              <div class="cal-cell-sub">${src ? src + ' · ' : ''}${acBed}${meals}</div>
+            </div>
+          `;
+        }
+        if (isToday && !isBooked) {
+          cellContent += `<span class="cal-today-badge">Today</span>`;
+        }
+        html += `
+          <div
+            class="${cellClass}"
+            data-room="${room}"
+            data-date="${dateStr}"
+            data-booking-id="${booking?.id || ''}"
+            title="${isBooked ? `${booking.guestName} · Room ${room}` : `Room ${room} · ${dateStr}`}"
+          >
+            ${cellContent}
           </div>
         `;
       }
-
-      if (isToday && !isBooked) {
-        cellContent += `<span class="cal-today-badge">Today</span>`;
-      }
-
-      html += `
-        <div
-          class="${cellClass}"
-          data-room="${room}"
-          data-date="${dateStr}"
-          data-booking-id="${booking?.id || ''}"
-          title="${isBooked ? `${booking.guestName} · Room ${room}` : `Room ${room} · ${dateStr}`}"
-        >
-          ${cellContent}
-        </div>
-      `;
     });
   });
 
