@@ -307,14 +307,22 @@ function renderGrid() {
       let cellContent = '';
 
       if (isAdmin) {
-        // Admin compact view: no name, just room color block + occasion badge only
+        // Admin view: color-coded cells + name detail (hidden on mobile via CSS)
         const bookedStyle = isBooked
           ? `background:${roomColor.bg};`
           : '';
         const todayStyle = isToday && !isBooked ? 'background:#eef2ff;' : '';
         const cellClass = `cal-cell admin-cell ${isBooked ? 'booked' : ''} ${isToday ? 'today-col' : ''}`;
-        if (isBooked && occasionBadge) {
-          cellContent = `<span class="admin-occasion">${occasionBadge}</span>`;
+        if (isBooked && booking) {
+          const src = booking.source || '';
+          const acBed = `${booking.acType||'N/A'} · ${booking.bedType||'N/A'}`;
+          cellContent = `
+            <div class="admin-cell-detail">
+              <div class="admin-cell-name">${booking.guestName}${occasionBadge}</div>
+              <div class="admin-cell-sub">${src ? src + ' · ' : ''}${acBed}</div>
+            </div>
+            ${occasionBadge ? `<span class="admin-occasion admin-occasion-mobile">${occasionBadge}</span>` : ''}
+          `;
         }
         html += `
           <div

@@ -1298,14 +1298,14 @@ select.form-control {
   display: block;
 }
 
-/* Admin cells — very compact, square-ish */
+/* Admin cells — desktop: taller with name detail visible */
 .admin-cal .cal-cell,
 .admin-cell {
-  height: 36px;
-  min-height: 36px;
+  height: 54px;
+  min-height: 54px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-start;
   overflow: hidden;
   position: relative;
 }
@@ -1315,7 +1315,46 @@ select.form-control {
   background: none; /* inline style from JS takes over */
 }
 
-/* Occasion badge inside admin cells — centered, larger emoji */
+/* Desktop detail block inside booked admin cells */
+.admin-cell-detail {
+  position: absolute;
+  inset: 3px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2px 5px;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.admin-cell-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1.2;
+}
+
+.admin-cell-sub {
+  font-size: 0.58rem;
+  color: rgba(255,255,255,0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+/* Occasion badge: hidden on desktop (shown in the name line), shown on mobile only */
+.admin-occasion-mobile {
+  display: none;
+}
+
+/* Occasion badge inside admin cells (mobile fallback) */
 .admin-occasion {
   position: absolute;
   top: 1px;
@@ -1363,11 +1402,15 @@ select.form-control {
     font-size: 0.62rem;
   }
 
+  /* Shrink cells on mobile — hide detail, show occasion badge only */
   .admin-cal .cal-cell,
   .admin-cell {
     height: 32px;
     min-height: 32px;
   }
+
+  .admin-cell-detail   { display: none; }       /* hide name + sub on mobile */
+  .admin-occasion-mobile { display: block; }    /* show emoji badge instead */
 }
 
 @media (max-width: 480px) {
