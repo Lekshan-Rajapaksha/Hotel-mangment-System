@@ -132,6 +132,15 @@ img {
 .text-center { text-align: center; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Responsive Visibility */
+@media (max-width: 768px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: block !important; }
+}
+@media (min-width: 769px) {
+  .mobile-only { display: none !important; }
+}
+
 /* --- Spinner --- */
 #spinner-overlay {
   position: fixed;
@@ -336,6 +345,42 @@ select.form-control {
   font-size: 1rem;
   font-weight: 700;
   color: var(--clr-text);
+}
+
+/* --- Expandable Widget --- */
+.expandable-widget {
+  background: var(--clr-surface);
+  border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.expandable-widget summary {
+  padding: 16px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.expandable-widget summary::-webkit-details-marker {
+  display: none;
+}
+.expandable-widget summary::after {
+  content: '▼';
+  font-size: 0.8rem;
+  color: var(--clr-text-muted);
+  transition: transform 0.2s;
+}
+.expandable-widget[open] summary {
+  border-bottom: 1.5px solid var(--clr-border);
+}
+.expandable-widget[open] summary::after {
+  transform: rotate(180deg);
+}
+.expandable-widget-content {
+  padding: 16px;
 }
 
 /* --- Stat Cards --- */

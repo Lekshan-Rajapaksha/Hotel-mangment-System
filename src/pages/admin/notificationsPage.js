@@ -94,40 +94,40 @@ function renderCard(r) {
   const fmtDate  = (d) => d ? d.toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
   return `
-    <div class="card notif-card" data-request-id="${r.id}" style="
-      margin-bottom:12px;
+    <details class="expandable-widget notif-card" data-request-id="${r.id}" style="
       border-left:4px solid ${isPending ? 'var(--clr-danger,#ef4444)' : isApproved ? 'var(--clr-success,#22c55e)' : 'var(--clr-border)'};
       opacity:${isPending ? '1' : '0.75'};
     ">
-      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap">
-        <div style="flex:1; min-width:0">
-          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap">
+      <summary style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px;">
+         <div style="flex:1; min-width:0; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             ${statusBadge}
-            <span style="font-size:0.75rem; color:var(--clr-text-muted)">${timeAgo} · by ${r.requestedBy || 'Unknown'}</span>
-          </div>
-
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; margin-bottom:${r.reason?'10px':'0'}">
-            ${infoItem('Guest', b.guestName || '—')}
+            <span style="font-weight:700; font-size:0.9rem; color:var(--clr-text)">${b.guestName || 'Unknown'}</span>
+            <span style="font-size:0.75rem; color:var(--clr-text-muted)">${timeAgo}</span>
+         </div>
+      </summary>
+      
+      <div class="expandable-widget-content">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; margin-bottom:${r.reason?'10px':'16px'}">
             ${infoItem('Room', b.roomNumber ? `Room ${b.roomNumber}` : '—')}
+            ${infoItem('Price', b.fullPrice ? `LKR ${Number(b.fullPrice).toLocaleString()}` : '—')}
             ${infoItem('Check-In', fmtDate(checkIn))}
             ${infoItem('Check-Out', fmtDate(checkOut))}
-            ${infoItem('Price', b.fullPrice ? `LKR ${Number(b.fullPrice).toLocaleString()}` : '—')}
             ${infoItem('Source', b.source || 'Direct')}
+            ${infoItem('Requested By', r.requestedBy || 'Unknown')}
           </div>
 
           ${r.reason ? `
-            <div style="background:var(--clr-surface);border:1px solid var(--clr-border);border-radius:6px;padding:8px 12px;font-size:0.82rem;color:var(--clr-text-muted)">
+            <div style="background:var(--clr-surface);border:1px solid var(--clr-border);border-radius:6px;padding:8px 12px;font-size:0.82rem;color:var(--clr-text-muted);margin-bottom:16px;">
               📝 <em>${r.reason}</em>
             </div>` : ''}
-        </div>
 
-        <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0">
+        <div style="display:flex; gap:8px; justify-content:flex-end; border-top:1px solid var(--clr-border); padding-top:12px">
           ${isPending ? `
-            <button class="btn btn-danger btn-sm notif-approve" data-id="${r.id}" data-booking-id="${r.bookingId}">
-              ✅ Approve & Delete
-            </button>
             <button class="btn btn-ghost btn-sm notif-reject" data-id="${r.id}">
               ❌ Reject
+            </button>
+            <button class="btn btn-danger btn-sm notif-approve" data-id="${r.id}" data-booking-id="${r.bookingId}">
+              ✅ Approve & Delete
             </button>
           ` : `
             <button class="btn btn-ghost btn-sm notif-dismiss" data-id="${r.id}" style="font-size:0.75rem">
@@ -136,7 +136,7 @@ function renderCard(r) {
           `}
         </div>
       </div>
-    </div>
+    </details>
   `;
 }
 

@@ -48,7 +48,7 @@ export function renderBillsPage(container) {
         </div>
       </div>
 
-      <div class="card" style="padding:0; overflow:hidden">
+      <div class="card desktop-only" style="padding:0; overflow:hidden">
         <div style="overflow-x:auto">
           <table class="data-table" id="bills-table">
             <thead>
@@ -72,6 +72,10 @@ export function renderBillsPage(container) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div id="bills-mobile-list" class="mobile-only">
+        <div style="text-align:center; padding:40px; color:var(--clr-text-muted)">Loading…</div>
       </div>
 
       <div id="bills-pagination" style="display:flex; justify-content:center; gap:8px; margin-top:20px; padding:4px"></div>
@@ -129,14 +133,19 @@ function applyFilters() {
 
 function renderTable(bookings) {
   const tbody = document.getElementById('bills-tbody');
-  if (!tbody) return;
+  const mobileList = document.getElementById('bills-mobile-list');
+  if (!tbody || !mobileList) return;
 
   if (!bookings.length) {
     tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:40px; color:var(--clr-text-muted)">No records found</td></tr>`;
+    mobileList.innerHTML = `<div style="text-align:center; padding:40px; color:var(--clr-text-muted)">No records found</div>`;
     return;
   }
 
-  tbody.innerHTML = bookings.map((b, i) => {
+  let tableHtml = '';
+  let mobileHtml = '';
+
+  bookings.forEach((b, i) => {
     const nights = nightCount(b.checkIn, b.checkOut);
     const rem = b.remaining ?? ((b.fullPrice||0) - (b.advancePaid||0));
     const billNo = `BCH-${String(b.id || i).slice(-6).toUpperCase()}`;
@@ -154,7 +163,7 @@ function renderTable(bookings) {
     else if (isCurrent) { statusLabel = '🟢 Active'; statusColor = 'var(--clr-success)'; }
     else              { statusLabel = '🔵 Upcoming'; statusColor = 'var(--clr-primary)'; }
 
-    return `
+    tableHtml += `
       <tr data-id="${b.id}" style="${isCancelled ? 'opacity:0.5' : ''}">
         <td data-label="Bill #" style="font-family:monospace; font-size:0.8rem; color:var(--clr-text-muted)">${billNo}</td>
         <td data-label="Guest">
@@ -179,7 +188,38 @@ function renderTable(bookings) {
         </td>
       </tr>
     `;
-  }).join('');
+
+    mobileHtml += `
+      <details class="expandable-widget" style="${isCancelled ? 'opacity:0.5' : ''}">
+        <summary>
+          <div>
+            <div style="font-weight:700; font-size:1rem; color:var(--clr-text)">${b.guestName}</div>
+            <div style="font-size:0.75rem; color:var(--clr-text-muted)">Room ${b.roomNumber} · ${billNo}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="color:${statusColor}; font-weight:700; font-size:0.75rem">${statusLabel}</div>
+            <div style="font-weight:800; font-size:0.9rem">${formatCurrency(Math.max(0,rem))}</div>
+          </div>
+        </summary>
+        <div class="expandable-widget-content">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; font-size:0.85rem">
+            <div><div style="color:var(--clr-text-muted); font-size:0.7rem; text-transform:uppercase; font-weight:700">Check-In</div><div style="font-weight:600">${formatDate(b.checkIn, true)}</div></div>
+            <div><div style="color:var(--clr-text-muted); font-size:0.7rem; text-transform:uppercase; font-weight:700">Check-Out</div><div style="font-weight:600">${formatDate(b.checkOut, true)}</div></div>
+            <div><div style="color:var(--clr-text-muted); font-size:0.7rem; text-transform:uppercase; font-weight:700">Nights</div><div style="font-weight:600">${nights}</div></div>
+            <div><div style="color:var(--clr-text-muted); font-size:0.7rem; text-transform:uppercase; font-weight:700">Source</div><div><span class="badge badge-primary">${b.source||'Direct'}</span></div></div>
+            <div><div style="color:var(--clr-text-muted); font-size:0.7rem; text-transform:uppercase; font-weight:700">Full Price</div><div style="font-weight:600">${formatCurrency(b.fullPrice)}</div></div>
+            <div><div style="color:var(--clr-text-muted); font-size:0.7rem; text-transform:uppercase; font-weight:700">Advance</div><div style="font-weight:600; color:var(--clr-success)">${formatCurrency(b.advancePaid||0)}</div></div>
+          </div>
+          <div class="flex gap-2" style="justify-content:flex-end; border-top:1px solid var(--clr-border); padding-top:12px">
+            ${!isCancelled ? `<button class="btn btn-danger btn-sm delete-bill-btn" data-id="${b.id}" title="Delete">🗑 Delete Bill</button>` : ''}
+          </div>
+        </div>
+      </details>
+    `;
+  });
+
+  tbody.innerHTML = tableHtml;
+  mobileList.innerHTML = mobileHtml;
 
 
   // Bind delete
