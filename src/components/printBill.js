@@ -48,6 +48,11 @@ export function openPrintBill(booking) {
                 <div class="print-info-label">Phone</div>
                 <div class="print-info-value">${b.phone}</div>
               </div>
+              ${b.passportNumber ? `
+              <div class="print-info-item">
+                <div class="print-info-label">Passport No.</div>
+                <div class="print-info-value">${b.passportNumber}</div>
+              </div>` : ''}
             </div>
 
             <!-- Stay Details -->
@@ -83,11 +88,11 @@ export function openPrintBill(booking) {
             <!-- Additional Guests -->
             <div class="print-section-title">ADDITIONAL GUESTS</div>
             <table class="print-table" style="margin-bottom:20px">
-              <thead><tr><th>#</th><th>Name</th></tr></thead>
+              <thead><tr><th>#</th><th>Name</th><th>Passport No.</th></tr></thead>
               <tbody>
-                <tr><td>1</td><td>${b.guestName}</td></tr>
+                <tr><td>1</td><td>${b.guestName}</td><td>${b.passportNumber || '-'}</td></tr>
                 ${b.additionalGuests.map((g,i) => `
-                  <tr><td>${i+2}</td><td>${g.name}</td></tr>
+                  <tr><td>${i+2}</td><td>${g.name}</td><td>${g.passport || '-'}</td></tr>
                 `).join('')}
               </tbody>
             </table>` : ''}
