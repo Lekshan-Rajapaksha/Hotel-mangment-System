@@ -120,6 +120,11 @@ export function openPrintBill(booking) {
                   <td colspan="3">${getMealLabel(b.meals)} (Included)</td>
                   <td>Included</td>
                 </tr>` : ''}
+                ${b.discountAmount ? `
+                <tr>
+                  <td colspan="3">Discount: ${b.discountDesc || 'Special Offer'}</td>
+                  <td style="color:green">- ${formatCurrency(b.discountAmount)}</td>
+                </tr>` : ''}
               </tbody>
             </table>
 
@@ -129,6 +134,11 @@ export function openPrintBill(booking) {
                 <span class="print-total-label">Subtotal</span>
                 <span class="print-total-value">${formatCurrency(b.fullPrice)}</span>
               </div>
+              ${b.discountAmount ? `
+              <div class="print-total-row">
+                <span class="print-total-label">Discount</span>
+                <span class="print-total-value" style="color:green">- ${formatCurrency(b.discountAmount)}</span>
+              </div>` : ''}
               <div class="print-total-row">
                 <span class="print-total-label">Advance Paid</span>
                 <span class="print-total-value" style="color:green">- ${formatCurrency(b.advancePaid || 0)}</span>
@@ -136,7 +146,7 @@ export function openPrintBill(booking) {
               <div style="width:100%; height:1px; background:#e2e8f0; margin:8px 0"></div>
               <div class="print-total-row print-grand-total">
                 <span style="font-weight:700">Balance Due</span>
-                <span class="print-total-value" style="font-size:1.3rem; color:#6c8aff; font-weight:800">${formatCurrency(b.remaining || (b.fullPrice - (b.advancePaid||0)))}</span>
+                <span class="print-total-value" style="font-size:1.3rem; color:#6c8aff; font-weight:800">${formatCurrency(b.remaining || (b.fullPrice - (b.discountAmount||0) - (b.advancePaid||0)))}</span>
               </div>
             </div>
 

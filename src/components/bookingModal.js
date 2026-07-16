@@ -210,8 +210,18 @@ export function openBookingModal(opts = {}) {
               <div class="form-group">
                 <label class="form-label">Remaining (LKR)</label>
                 <div class="form-control" id="bk-remaining" style="color:var(--clr-accent); font-weight:700; cursor:default;">
-                  ${b.fullPrice ? formatCurrency((b.fullPrice||0) - (b.advancePaid||0)) : '—'}
+                  ${b.fullPrice ? formatCurrency((b.fullPrice||0) - (b.discountAmount||0) - (b.advancePaid||0)) : '—'}
                 </div>
+              </div>
+            </div>
+            <div class="form-row" style="margin-bottom:14px">
+              <div class="form-group">
+                <label class="form-label" for="bk-discount-desc">Discount Description</label>
+                <input type="text" id="bk-discount-desc" class="form-control" placeholder="e.g. Special Offer" value="${b.discountDesc||''}" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="bk-discount">Discount Amount (LKR)</label>
+                <input type="number" id="bk-discount" class="form-control" placeholder="0.00" min="0" step="0.01" value="${b.discountAmount||0}" />
               </div>
             </div>
 
@@ -302,6 +312,7 @@ function bindModalEvents() {
   // Remaining update
   document.getElementById('bk-fullprice')?.addEventListener('input', updateRemaining);
   document.getElementById('bk-advance')?.addEventListener('input', updateRemaining);
+  document.getElementById('bk-discount')?.addEventListener('input', updateRemaining);
 
   // Add guest
   document.getElementById('add-guest-btn')?.addEventListener('click', () => {
@@ -460,7 +471,8 @@ function syncOccasionDateLimits() {
 function updateRemaining() {
   const full = parseFloat(document.getElementById('bk-fullprice')?.value) || 0;
   const adv  = parseFloat(document.getElementById('bk-advance')?.value) || 0;
-  const rem = full - adv;
+  const disc = parseFloat(document.getElementById('bk-discount')?.value) || 0;
+  const rem = full - disc - adv;
   const el = document.getElementById('bk-remaining');
   if (el) {
     el.textContent = formatCurrency(rem);
@@ -491,6 +503,8 @@ async function saveBooking(andPrint = false) {
   }
 
   const advancePaid = parseFloat(document.getElementById('bk-advance')?.value) || 0;
+  const discountAmount = parseFloat(document.getElementById('bk-discount')?.value) || 0;
+  const discountDesc = document.getElementById('bk-discount-desc')?.value?.trim() || '';
 
   // Collect additional guests
   const additionalGuests = [];
@@ -511,7 +525,9 @@ async function saveBooking(andPrint = false) {
     checkOut,
     fullPrice,
     advancePaid,
-    remaining: fullPrice - advancePaid,
+    discountAmount,
+    discountDesc,
+    remaining: fullPrice - discountAmount - advancePaid,
     passportNumber: document.getElementById('bk-passport')?.value?.trim() || '',
     companyName: document.getElementById('bk-company')?.value?.trim() || '',
     source: document.getElementById('bk-source')?.value,
