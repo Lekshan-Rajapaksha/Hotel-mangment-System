@@ -150,11 +150,6 @@ export function openPrintBill(booking) {
               </div>
             </div>
 
-            ${b.notes ? `
-            <div style="padding:12px; background:#f8fafc; border-radius:6px; margin-bottom:24px; font-size:0.85rem;">
-              <strong>Notes:</strong> ${b.notes}
-            </div>` : ''}
-
             <!-- Footer -->
             <div class="print-footer">
               <div>Thank you for staying with Blue Cove Hiriketiya!</div>
