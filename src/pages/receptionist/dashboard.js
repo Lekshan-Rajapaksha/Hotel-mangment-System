@@ -2,6 +2,7 @@
 import { renderSidebar, renderMobileHeader, bindMobileHeader, setActiveNav } from '../../components/sidebar.js';
 import { renderCalendarPage } from './calendarPage.js';
 import { renderMyBookingsPage } from './myBookingsPage.js';
+import { renderPricingPage, destroyPricingPage } from './pricingPage.js';
 
 let currentPage = 'calendar';
 let userData = null;
@@ -49,8 +50,12 @@ function loadPage(page) {
   currentPage = page;
 
   if (page === 'calendar') {
+    destroyPricingPage();
     renderCalendarPage(container);
   } else if (page === 'bookings') {
+    destroyPricingPage();
     renderMyBookingsPage(container);
+  } else if (page === 'pricing') {
+    renderPricingPage(container);
   }
 }

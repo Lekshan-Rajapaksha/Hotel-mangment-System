@@ -3,7 +3,7 @@ import { renderSidebar, renderMobileHeader, bindMobileHeader, setActiveNav } fro
 import { renderAdminCalendarPage } from './adminCalendarPage.js';
 import { renderAnalyticsPage } from './analyticsPage.js';
 import { renderBillsPage } from './billsPage.js';
-import { renderNotificationsPage } from './notificationsPage.js';
+import { renderNotificationsPage, destroyNotificationsPage } from './notificationsPage.js';
 import { renderRoomSummaryPage } from './roomSummaryPage.js';
 
 let currentPage = 'calendar';
@@ -40,6 +40,10 @@ function navigateTo(page) {
 function loadPage(page) {
   const container = document.getElementById('page-container');
   if (!container) return;
+
+  // Tear down notifications listeners when leaving
+  if (currentPage !== 'notifications') destroyNotificationsPage();
+
   currentPage = page;
 
   if (page === 'calendar') {

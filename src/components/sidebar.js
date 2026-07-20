@@ -3,6 +3,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebase.js';
 import { showToast } from '../utils/toast.js';
 import { subscribePendingCount } from '../services/deleteRequestService.js';
+import { subscribeUnreadPriceNotifCount } from '../services/priceService.js';
 import logoImg from '../assets/Blue cove hiriketiya (1).png';
 
 const COLLAPSED_KEY = 'sidebar_collapsed';
@@ -23,6 +24,7 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
   const receptionLinks = [
     { id: 'calendar', icon: '📅', label: 'Room Calendar' },
     { id: 'bookings', icon: '📋', label: 'My Bookings' },
+    { id: 'pricing',  icon: '💵', label: 'Price Log' },
   ];
 
   const links = isAdmin ? adminLinks : receptionLinks;
@@ -102,15 +104,29 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
 
     // Live pending-count badge for admin notifications
     if (isAdmin) {
-      subscribePendingCount((count) => {
+      let deleteCount = 0;
+      let priceCount  = 0;
+
+      const updateBadge = () => {
+        const total = deleteCount + priceCount;
         const badge = document.getElementById('notif-badge');
         if (!badge) return;
-        if (count > 0) {
-          badge.textContent = count > 99 ? '99+' : String(count);
+        if (total > 0) {
+          badge.textContent = total > 99 ? '99+' : String(total);
           badge.style.display = 'flex';
         } else {
           badge.style.display = 'none';
         }
+      };
+
+      subscribePendingCount((count) => {
+        deleteCount = count;
+        updateBadge();
+      });
+
+      subscribeUnreadPriceNotifCount((count) => {
+        priceCount = count;
+        updateBadge();
       });
     }
   }};
