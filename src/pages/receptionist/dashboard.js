@@ -3,6 +3,7 @@ import { renderSidebar, renderMobileHeader, bindMobileHeader, setActiveNav } fro
 import { renderCalendarPage } from './calendarPage.js';
 import { renderMyBookingsPage } from './myBookingsPage.js';
 import { renderPricingPage, destroyPricingPage } from './pricingPage.js';
+import { renderUtilityBillsPage, destroyUtilityBillsPage } from './utilityBillsPage.js';
 
 let currentPage = 'calendar';
 let userData = null;
@@ -54,8 +55,13 @@ function loadPage(page) {
     renderCalendarPage(container);
   } else if (page === 'bookings') {
     destroyPricingPage();
+    if (currentPage === 'utilitybills') destroyUtilityBillsPage();
     renderMyBookingsPage(container);
   } else if (page === 'pricing') {
+    if (currentPage === 'utilitybills') destroyUtilityBillsPage();
     renderPricingPage(container);
+  } else if (page === 'utilitybills') {
+    destroyPricingPage();
+    renderUtilityBillsPage(container);
   }
 }

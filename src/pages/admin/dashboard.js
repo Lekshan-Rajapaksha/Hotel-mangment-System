@@ -3,6 +3,7 @@ import { renderSidebar, renderMobileHeader, bindMobileHeader, setActiveNav } fro
 import { renderAdminCalendarPage } from './adminCalendarPage.js';
 import { renderAnalyticsPage } from './analyticsPage.js';
 import { renderBillsPage } from './billsPage.js';
+import { renderUtilityBillsPage, destroyUtilityBillsAdminPage } from './utilityBillsPage.js';
 import { renderNotificationsPage, destroyNotificationsPage } from './notificationsPage.js';
 import { renderRoomSummaryPage } from './roomSummaryPage.js';
 
@@ -43,6 +44,9 @@ function loadPage(page) {
 
   // Tear down notifications listeners when leaving
   if (currentPage !== 'notifications') destroyNotificationsPage();
+  if (currentPage !== 'utility') {
+    if (typeof destroyUtilityBillsAdminPage === 'function') destroyUtilityBillsAdminPage();
+  }
 
   currentPage = page;
 
@@ -54,6 +58,8 @@ function loadPage(page) {
     renderAnalyticsPage(container);
   } else if (page === 'bills') {
     renderBillsPage(container);
+  } else if (page === 'utility') {
+    renderUtilityBillsPage(container);
   } else if (page === 'notifications') {
     renderNotificationsPage(container);
   }
