@@ -33,6 +33,15 @@ export function subscribeEmployees(callback) {
   });
 }
 
+export async function deleteEmployee(employeeId) {
+  try {
+    await deleteDoc(doc(db, EMPLOYEES_COL, employeeId));
+  } catch (error) {
+    console.error('Error deleting employee:', error);
+    throw error;
+  }
+}
+
 // --- Attendance ---
 
 export async function addAttendance(employeeId, dateStr, status) {

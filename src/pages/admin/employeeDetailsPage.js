@@ -2,7 +2,8 @@ import {
   subscribeEmployees, 
   subscribeAttendance, 
   subscribeSalaryPayments,
-  deleteSalaryPayment
+  deleteSalaryPayment,
+  deleteEmployee
 } from '../../services/employeeService.js';
 
 let unsubEmployees = null;
@@ -65,6 +66,19 @@ function bindEvents() {
         }
       }
     }
+
+    if (e.target.classList.contains('btn-del-emp')) {
+      const empId = e.target.dataset.id;
+      if (confirm('Are you sure you want to permanently delete this employee? This action cannot be undone.')) {
+        try {
+          await deleteEmployee(empId);
+          document.getElementById('btn-back-to-grid').click();
+        } catch (err) {
+          console.error('Failed to delete employee', err);
+          alert('Error deleting employee.');
+        }
+      }
+    }
   });
 }
 
@@ -110,12 +124,17 @@ function openProfileView(emp) {
   const initials = emp.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   
   contentArea.innerHTML = `
-    <div class="profile-header-section">
-      <div class="profile-avatar">${initials}</div>
-      <div class="profile-title">
-        <h2>${emp.name}</h2>
-        <span class="badge-blue" style="padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; font-weight: 500; display: inline-block; margin-top: 0.5rem;">${emp.role || 'Employee'}</span>
-        <p>📞 ${emp.phone} &nbsp;|&nbsp; 💰 Basic: Rs ${Number(emp.basicSalary).toLocaleString()}</p>
+    <div class="profile-header-section" style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">
+      <div style="display: flex; gap: 1.5rem; align-items: center;">
+        <div class="profile-avatar">${initials}</div>
+        <div class="profile-title">
+          <h2>${emp.name}</h2>
+          <span class="badge-blue" style="padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; font-weight: 500; display: inline-block; margin-top: 0.5rem;">${emp.role || 'Employee'}</span>
+          <p>📞 ${emp.phone} &nbsp;|&nbsp; 💰 Basic: Rs ${Number(emp.basicSalary).toLocaleString()}</p>
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-sm btn-ghost btn-del-emp" data-id="${emp.id}" style="color: #dc2626; border: 1px solid #dc2626;">Delete Employee</button>
       </div>
     </div>
 
