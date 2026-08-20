@@ -4,6 +4,7 @@ import { renderCalendarPage } from './calendarPage.js';
 import { renderMyBookingsPage } from './myBookingsPage.js';
 import { renderPricingPage, destroyPricingPage } from './pricingPage.js';
 import { renderUtilityBillsPage, destroyUtilityBillsPage } from './utilityBillsPage.js';
+import { renderEmployeePage, destroyEmployeePage } from './employeePage.js';
 
 let currentPage = 'calendar';
 let userData = null;
@@ -62,6 +63,11 @@ function loadPage(page) {
     renderPricingPage(container);
   } else if (page === 'utilitybills') {
     destroyPricingPage();
+    if (currentPage === 'employees') destroyEmployeePage();
     renderUtilityBillsPage(container);
+  } else if (page === 'employees') {
+    destroyPricingPage();
+    if (currentPage === 'utilitybills') destroyUtilityBillsPage();
+    renderEmployeePage(container);
   }
 }

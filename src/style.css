@@ -3047,3 +3047,304 @@ details[open] .notif-expand-hint { transform: rotate(180deg); }
   .price-change-arrow { display: none; }
 }
 
+/* Badge Styles for Attendance */
+.badge-green {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+.badge-red {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+.badge-yellow {
+  background-color: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+}
+.badge-blue {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+}
+
+/* --- Employee Card Grid --- */
+.employee-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.employee-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  cursor: pointer;
+}
+
+.employee-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: var(--clr-primary);
+}
+
+.emp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.emp-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--clr-primary), #6366f1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.emp-info h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--clr-text);
+}
+
+.emp-info .emp-role {
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.emp-details {
+  font-size: 0.9rem;
+  color: var(--clr-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.emp-card-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 1rem;
+  border-top: 1px solid var(--clr-border);
+}
+
+/* --- Detailed Employee Profile (Admin) --- */
+.profile-header-section {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: var(--clr-surface);
+  padding: 2rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--clr-primary), #8b5cf6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.profile-title h2 {
+  margin: 0;
+  font-size: 1.75rem;
+  color: var(--clr-text);
+}
+
+.profile-title p {
+  margin: 0.25rem 0 0 0;
+  color: var(--clr-text-muted);
+  font-size: 1rem;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--clr-surface);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--clr-border);
+  text-align: center;
+}
+
+.stat-card-title {
+  font-size: 0.85rem;
+  color: var(--clr-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-card-value {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-top: 0.5rem;
+  color: var(--clr-primary);
+}
+
+.profile-tables-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 900px) {
+  .profile-tables-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Inline Forms --- */
+.inline-form {
+  background: var(--clr-surface-alt);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--clr-border);
+  margin-top: 1rem;
+  display: none; /* hidden by default */
+}
+.inline-form.active {
+  display: block;
+  animation: fadeIn 0.2s var(--ease);
+}
+
+/* --- Calendar Grid --- */
+.calendar-container {
+  border: 1px solid var(--clr-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--clr-surface);
+}
+
+.calendar-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--clr-surface-alt);
+  border-bottom: 1px solid var(--clr-border);
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.85rem;
+  color: var(--clr-text-muted);
+}
+
+.calendar-header div {
+  padding: 0.5rem;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--clr-border);
+}
+
+.calendar-day {
+  background: var(--clr-surface);
+  min-height: 60px;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.calendar-day.empty {
+  background: var(--clr-surface-alt);
+  color: transparent;
+}
+
+.calendar-date-number {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.cal-status-pill {
+  width: 100%;
+  text-align: center;
+  padding: 0.2rem 0;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.cal-full {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.cal-half {
+  background-color: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+}
+
+.cal-absent {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+/* --- Responsive Employee Section --- */
+.add-employee-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .add-employee-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .profile-header-section {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .employee-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .calendar-container {
+    overflow-x: auto;
+  }
+  
+  .calendar-header, .calendar-grid {
+    min-width: 500px;
+  }
+  
+  .calendar-day {
+    font-size: 0.8rem;
+    padding: 0.25rem;
+  }
+  
+  .cal-status-pill {
+    font-size: 0.65rem;
+  }
+}
+
+

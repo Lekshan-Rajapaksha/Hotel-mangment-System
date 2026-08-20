@@ -50,5 +50,20 @@ service cloud.firestore {
     match /utilityBills/{billId} {
       allow read, write: if request.auth != null;
     }
+
+    // Employees: authenticated users can read and write
+    match /employees/{employeeId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Employee Attendance: authenticated users can read and write
+    match /employeeAttendance/{attendanceId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Employee Salary Payments: authenticated users can read and write
+    match /employeeSalaryPayments/{paymentId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }

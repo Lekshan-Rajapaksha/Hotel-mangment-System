@@ -6,6 +6,7 @@ import { renderBillsPage } from './billsPage.js';
 import { renderUtilityBillsPage, destroyUtilityBillsAdminPage } from './utilityBillsPage.js';
 import { renderNotificationsPage, destroyNotificationsPage } from './notificationsPage.js';
 import { renderRoomSummaryPage } from './roomSummaryPage.js';
+import { renderEmployeeDetailsPage, destroyEmployeeDetailsPage } from './employeeDetailsPage.js';
 
 let currentPage = 'calendar';
 
@@ -61,7 +62,11 @@ function loadPage(page) {
   } else if (page === 'utility') {
     renderUtilityBillsPage(container);
   } else if (page === 'notifications') {
+    if (currentPage === 'employees') destroyEmployeeDetailsPage();
     renderNotificationsPage(container);
+  } else if (page === 'employees') {
+    if (currentPage === 'notifications') destroyNotificationsPage();
+    renderEmployeeDetailsPage(container);
   }
 }
 
