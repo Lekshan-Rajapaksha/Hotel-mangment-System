@@ -392,13 +392,13 @@ function renderRecentSummary(bookings) {
             const statusColor = isPast ? 'var(--clr-text-muted)' : isCurrent ? 'var(--clr-success)' : 'var(--clr-primary)';
             return `
               <tr>
-                <td><div style="font-weight:600">${b.guestName}</div><div style="font-size:0.75rem;color:var(--clr-text-muted)">${b.phone}</div></td>
-                <td><span style="font-weight:700;color:var(--clr-primary)">Room ${b.roomNumber}</span></td>
-                <td>${formatDate(b.checkIn, true)}</td>
-                <td>${nights}</td>
-                <td><span class="badge badge-primary">${b.source||'Direct'}</span></td>
-                <td style="font-weight:700">${formatCurrency(b.fullPrice)}</td>
-                <td style="color:${statusColor};font-weight:600;font-size:0.82rem">${statusLabel}</td>
+                <td data-label="Guest"><div style="font-weight:600">${b.guestName}</div><div style="font-size:0.75rem;color:var(--clr-text-muted)">${b.phone}</div></td>
+                <td data-label="Room"><span style="font-weight:700;color:var(--clr-primary)">Room ${b.roomNumber}</span></td>
+                <td data-label="Check-In">${formatDate(b.checkIn, true)}</td>
+                <td data-label="Nights">${nights}</td>
+                <td data-label="Source"><span class="badge badge-primary">${b.source||'Direct'}</span></td>
+                <td data-label="Revenue" style="font-weight:700">${formatCurrency(b.fullPrice)}</td>
+                <td data-label="Status" style="color:${statusColor};font-weight:600;font-size:0.82rem">${statusLabel}</td>
               </tr>
             `;
           }).join('')}

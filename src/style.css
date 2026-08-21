@@ -3347,4 +3347,53 @@ details[open] .notif-expand-hint { transform: rotate(180deg); }
   }
 }
 
-
+/* ─────────────────────────────────────────────
+   GLOBAL ADMIN MOBILE UI FIXES
+───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Prevent horizontal scrolling on the entire page */
+  body, html {
+    overflow-x: hidden;
+  }
+  
+  /* Ensure main content doesn't exceed screen width */
+  .main-content {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  /* Make all generic tables horizontally scrollable */
+  .table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  
+  /* Ensure cards containing wide content can scroll internally instead of stretching the page */
+  .card {
+    max-width: 100vw;
+    overflow-x: auto;
+  }
+  
+  /* Room summary grids */
+  .rs-rooms-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  /* Make sure header actions wrap nicely */
+  .page-header > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  /* Fix specific modal widths if they overflow */
+  .modal-content {
+    width: 95% !important;
+    margin: 10px auto !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+}
