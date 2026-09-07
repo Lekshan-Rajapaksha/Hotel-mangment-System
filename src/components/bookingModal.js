@@ -216,21 +216,19 @@ export async function openBookingModal(opts = {}) {
 
             <div class="divider"></div>
 
-            <!-- === AUTO-CALCULATED PRICE BREAKDOWN === -->
-            <div id="bk-price-breakdown" class="bk-breakdown-panel" style="margin-bottom:14px; display:none">
-              <!-- Filled dynamically by calcAndFill() -->
-            </div>
-
             <!-- === PRICING === -->
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
-              <div class="section-title" style="margin-bottom:0">💰 Pricing</div>
-              <button type="button" class="btn btn-ghost btn-sm" id="bk-recalc-btn" title="Re-calculate from Price Log">🔄 Auto-Calculate</button>
-            </div>
-            <div class="form-row-3" style="margin-bottom:14px">
+            <div class="section-title" style="margin-bottom:10px">💰 Pricing</div>
+            <div class="form-row" style="margin-bottom:14px">
+              <div class="form-group">
+                <label class="form-label" for="bk-priceperday">Price Per Day (LKR) *</label>
+                <input type="number" id="bk-priceperday" class="form-control" placeholder="0.00" min="0" step="0.01" value="${b.pricePerDay||''}" required />
+              </div>
               <div class="form-group">
                 <label class="form-label" for="bk-fullprice">Full Price (LKR) *</label>
                 <input type="number" id="bk-fullprice" class="form-control" placeholder="0.00" min="0" step="0.01" value="${b.fullPrice||''}" required />
               </div>
+            </div>
+            <div class="form-row" style="margin-bottom:14px">
               <div class="form-group">
                 <label class="form-label" for="bk-advance">Advance Paid (LKR)</label>
                 <input type="number" id="bk-advance" class="form-control" placeholder="0.00" min="0" step="0.01" value="${b.advancePaid||0}" />
@@ -335,15 +333,11 @@ function bindModalEvents() {
     calcAndFill();
   });
 
-  // Recalc when room config changes
+  // Room change for availability warning
   document.getElementById('bk-room')?.addEventListener('change', updateAvailabilityWarning);
-  document.getElementById('bk-ac')?.addEventListener('change',      calcAndFill);
-  document.getElementById('bk-bed')?.addEventListener('change',     calcAndFill);
-  document.getElementById('bk-meals')?.addEventListener('change',   calcAndFill);
-  document.getElementById('bk-persons')?.addEventListener('change', calcAndFill);
 
-  // Manual recalc button
-  document.getElementById('bk-recalc-btn')?.addEventListener('click', calcAndFill);
+  // Recalc full price when price per day changes
+  document.getElementById('bk-priceperday')?.addEventListener('input', calcAndFill);
 
   // Remaining update
   document.getElementById('bk-fullprice')?.addEventListener('input', updateRemaining);
@@ -357,7 +351,6 @@ function bindModalEvents() {
     container.insertAdjacentHTML('beforeend', renderGuestRow(count));
     bindRemoveGuest();
     syncPersonsFromGuests();
-    calcAndFill();
   });
 
   bindRemoveGuest();
@@ -394,7 +387,6 @@ function bindRemoveGuest() {
           (row.querySelector('.form-group label').textContent = `Guest ${i+2} Name`);
       });
       syncPersonsFromGuests();
-      calcAndFill();
     };
   });
 }
@@ -538,85 +530,29 @@ function updateRemaining() {
 }
 
 /**
- * Auto-calculate the total price from the Price Log and fill the fullPrice input.
- * Also renders a line-by-line breakdown panel.
+ * Auto-calculate the total price based on price per day.
  */
 function calcAndFill() {
   const ci      = document.getElementById('bk-checkin')?.value;
   const co      = document.getElementById('bk-checkout')?.value;
-  const acType  = document.getElementById('bk-ac')?.value   || 'AC';
-  const bedType = document.getElementById('bk-bed')?.value  || 'Single';
-  const meal    = document.getElementById('bk-meals')?.value || 'None';
-  const persons = parseInt(document.getElementById('bk-persons')?.value) || 1;
+  const pricePerDay = parseFloat(document.getElementById('bk-priceperday')?.value) || 0;
 
-  const panel = document.getElementById('bk-price-breakdown');
-  if (!ci || !co) { if (panel) panel.style.display = 'none'; return; }
+  if (!ci || !co) return;
 
   const nights = Math.max(0, Math.round((new Date(co) - new Date(ci)) / 86400000));
-  if (nights <= 0) { if (panel) panel.style.display = 'none'; return; }
+  if (nights <= 0) return;
 
-  // --- Lookup rates from cached Price Log ---
-  const p = _prices;
-  const acKey  = acType === 'AC' ? 'ac' : 'nonAc';
-  const bedKey = bedType.toLowerCase(); // 'single' | 'double' | 'triple'
-  const ratePerNight = (p[acKey]?.[bedKey]) ?? 0;
-
-  const roomTotal   = ratePerNight * nights;
-
-  // Meal add-on
-  const mealKey  = meal.toLowerCase();  // 'bb' | 'hb' | 'fb' | 'none'
-  const mealRate = meal === 'None' ? 0 : (p.meals?.[mealKey] ?? 0);
-  const mealTotal = mealRate * persons * nights;
-
-  // Extra person surcharge (applies from 2nd guest)
-  const extraPersonRate  = p.extraPerson ?? 0;
-  const extraGuests      = Math.max(0, persons - 1);
-  const extraPersonTotal = extraPersonRate * extraGuests * nights;
-
-  const grandTotal = roomTotal + mealTotal + extraPersonTotal;
+  const grandTotal = pricePerDay * nights;
 
   // --- Fill the Full Price input ---
   const priceInput = document.getElementById('bk-fullprice');
-  if (priceInput) {
+  if (priceInput && grandTotal > 0) {
     priceInput.value = grandTotal.toFixed(2);
     priceInput.dispatchEvent(new Event('input')); // trigger remaining recalc
+  } else if (priceInput && grandTotal === 0) {
+    priceInput.value = '';
+    priceInput.dispatchEvent(new Event('input'));
   }
-
-  // --- Render breakdown panel ---
-  if (!panel) return;
-  panel.style.display = 'block';
-
-  const mealLabel = { BB:'Bed & Breakfast', HB:'Half Board', FB:'Full Board', None:'No Meals' }[meal] || meal;
-  const acLabel   = acType === 'AC' ? '❄️ AC' : '🌀 Non-AC';
-
-  panel.innerHTML = `
-    <div class="bk-breakdown-title">📊 Auto-Calculated Price Breakdown</div>
-    <div class="bk-breakdown-source">Rates sourced from <strong>Price Log</strong> · ${nights} night${nights>1?'s':''} · ${persons} guest${persons>1?'s':''}</div>
-    <div class="bk-breakdown-rows">
-      <div class="bk-bd-row">
-        <span class="bk-bd-label">${acLabel} ${bedType} Room × ${nights} night${nights>1?'s':''}</span>
-        <span class="bk-bd-rate">${formatCurrency(ratePerNight)}/night</span>
-        <span class="bk-bd-amount">${formatCurrency(roomTotal)}</span>
-      </div>
-      ${meal !== 'None' ? `
-      <div class="bk-bd-row">
-        <span class="bk-bd-label">🍽️ ${mealLabel} × ${persons} pax × ${nights} night${nights>1?'s':''}</span>
-        <span class="bk-bd-rate">${formatCurrency(mealRate)}/pax/night</span>
-        <span class="bk-bd-amount">${formatCurrency(mealTotal)}</span>
-      </div>` : ''}
-      ${extraGuests > 0 ? `
-      <div class="bk-bd-row">
-        <span class="bk-bd-label">👤 Extra person × ${extraGuests} guest${extraGuests>1?'s':''} × ${nights} night${nights>1?'s':''}</span>
-        <span class="bk-bd-rate">${formatCurrency(extraPersonRate)}/guest/night</span>
-        <span class="bk-bd-amount">${formatCurrency(extraPersonTotal)}</span>
-      </div>` : ''}
-    </div>
-    <div class="bk-breakdown-total">
-      <span>Calculated Total</span>
-      <span class="bk-breakdown-total-val">${formatCurrency(grandTotal)}</span>
-    </div>
-    <div class="bk-breakdown-note">✏️ You can edit the Full Price below if a custom rate applies.</div>
-  `;
 }
 
 async function saveBooking(andPrint = false) {
@@ -662,6 +598,7 @@ async function saveBooking(andPrint = false) {
     meals: document.getElementById('bk-meals')?.value,
     checkIn,
     checkOut,
+    pricePerDay: parseFloat(document.getElementById('bk-priceperday')?.value) || 0,
     fullPrice,
     advancePaid,
     discountAmount,
