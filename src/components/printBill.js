@@ -8,13 +8,16 @@ let currentMode = 'thermal'; // 'thermal' (80mm) | 'a4'
 export function openPrintBill(booking) {
   const b = booking;
   const nights = nightCount(b.checkIn, b.checkOut);
-  const pricePerNight = b.fullPrice / nights;
+  const extraChargesList = Array.isArray(b.extraCharges) ? b.extraCharges : [];
+  const extraTotal = extraChargesList.reduce((sum, ec) => sum + Number(ec.amount || 0), 0);
+  const totalPrice = Number(b.fullPrice || 0);
+  const roomPriceTotal = b.pricePerDay ? (Number(b.pricePerDay) * nights) : Math.max(0, totalPrice - extraTotal);
+  const pricePerNight = nights > 0 ? (roomPriceTotal / nights) : roomPriceTotal;
   const billNo = `BCH-${String(b.id || Date.now()).slice(-6).toUpperCase()}`;
   const now = new Date();
   const today = now.toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-  const totalPrice = Number(b.fullPrice || 0);
   const discount = Number(b.discountAmount || 0);
   const advance = Number(b.advancePaid || 0);
   const balance = b.remaining !== undefined ? Number(b.remaining) : Math.max(0, totalPrice - discount - advance);
@@ -162,7 +165,7 @@ export function openPrintBill(booking) {
                 <div class="thermal-item-name thermal-bold">Room ${b.roomNumber} (${escapeHtml(b.acType)} ${escapeHtml(b.bedType)})</div>
                 <div class="thermal-row thermal-indent">
                   <span>${nights}N × ${formatCurrency(pricePerNight)}</span>
-                  <span class="thermal-bold">${formatCurrency(totalPrice)}</span>
+                  <span class="thermal-bold">${formatCurrency(roomPriceTotal)}</span>
                 </div>
               </div>
 
@@ -172,6 +175,17 @@ export function openPrintBill(booking) {
                   <span>${getMealLabel(b.meals)}</span>
                   <span>INCLUDED</span>
                 </div>
+              </div>` : ''}
+
+              ${extraChargesList.length ? `
+              <div class="thermal-item-block" style="margin-top:6px">
+                <div class="thermal-item-name thermal-bold">Extra Charges / Services:</div>
+                ${extraChargesList.map(ec => `
+                  <div class="thermal-row thermal-indent">
+                    <span>+ ${escapeHtml(ec.details || 'Extra Charge')}</span>
+                    <span class="thermal-bold">${formatCurrency(ec.amount || 0)}</span>
+                  </div>
+                `).join('')}
               </div>` : ''}
 
               ${discount > 0 ? `
@@ -186,6 +200,15 @@ export function openPrintBill(booking) {
 
               <!-- Totals -->
               <div class="thermal-totals-list">
+                <div class="thermal-row">
+                  <span>Room Charges:</span>
+                  <span>${formatCurrency(roomPriceTotal)}</span>
+                </div>
+                ${extraTotal > 0 ? `
+                <div class="thermal-row">
+                  <span>Extra Charges:</span>
+                  <span>+ ${formatCurrency(extraTotal)}</span>
+                </div>` : ''}
                 <div class="thermal-row">
                   <span>Subtotal:</span>
                   <span>${formatCurrency(totalPrice)}</span>
@@ -340,18 +363,26 @@ export function openPrintBill(booking) {
                 <thead>
                   <tr>
                     <th>Description</th>
-                    <th>Nights</th>
-                    <th>Rate/Night</th>
+                    <th>Qty / Nights</th>
+                    <th>Rate</th>
                     <th>Amount</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td>Room ${b.roomNumber} — ${escapeHtml(b.acType)} ${escapeHtml(b.bedType)} Bed</td>
-                    <td>${nights}</td>
+                    <td>${nights} Night${nights > 1 ? 's' : ''}</td>
                     <td>${formatCurrency(pricePerNight)}</td>
-                    <td>${formatCurrency(totalPrice)}</td>
+                    <td>${formatCurrency(roomPriceTotal)}</td>
                   </tr>
+                  ${extraChargesList.map(ec => `
+                  <tr>
+                    <td>Extra: ${escapeHtml(ec.details || 'Service')}</td>
+                    <td>1</td>
+                    <td>${formatCurrency(ec.amount || 0)}</td>
+                    <td>${formatCurrency(ec.amount || 0)}</td>
+                  </tr>
+                  `).join('')}
                   ${b.meals !== 'None' ? `
                   <tr>
                     <td colspan="3">${getMealLabel(b.meals)} (Included)</td>
@@ -367,6 +398,15 @@ export function openPrintBill(booking) {
 
               <!-- Totals -->
               <div class="print-totals">
+                <div class="print-total-row">
+                  <span class="print-total-label">Room Charges</span>
+                  <span class="print-total-value">${formatCurrency(roomPriceTotal)}</span>
+                </div>
+                ${extraTotal > 0 ? `
+                <div class="print-total-row">
+                  <span class="print-total-label">Extra Charges</span>
+                  <span class="print-total-value">+ ${formatCurrency(extraTotal)}</span>
+                </div>` : ''}
                 <div class="print-total-row">
                   <span class="print-total-label">Subtotal</span>
                   <span class="print-total-value">${formatCurrency(totalPrice)}</span>
@@ -439,7 +479,7 @@ export function openPrintBill(booking) {
 
   // Bind Copy Button (Text receipt for WhatsApp / SMS)
   document.getElementById('bill-copy-btn')?.addEventListener('click', () => {
-    const text = generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, totalPrice, discount, advance, balance, isPaid);
+    const text = generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, roomPriceTotal, totalPrice, discount, advance, balance, isPaid);
     navigator.clipboard.writeText(text).then(() => {
       showToast('Receipt details copied to clipboard!', 'success');
     }).catch(() => {
@@ -486,7 +526,8 @@ function setPrintPageStyle(mode) {
 }
 
 /** Plaintext receipt formatter for clipboard copy */
-function generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, totalPrice, discount, advance, balance, isPaid) {
+function generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, roomPriceTotal, totalPrice, discount, advance, balance, isPaid) {
+  const extraList = Array.isArray(b.extraCharges) ? b.extraCharges : [];
   return [
     '========================================',
     '       BLUE COVE HIRIKETIYA',
@@ -504,7 +545,9 @@ function generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, t
     `Duration    : ${nights} Night${nights > 1 ? 's' : ''}`,
     `Meal Plan   : ${getMealLabel(b.meals)}`,
     '----------------------------------------',
-    `Room Charge : ${formatCurrency(totalPrice)}`,
+    `Room Charge : ${formatCurrency(roomPriceTotal)}`,
+    ...(extraList.map(ec => `Extra: ${ec.details || 'Service'}: ${formatCurrency(ec.amount || 0)}`)),
+    extraList.length > 0 ? `Subtotal    : ${formatCurrency(totalPrice)}` : null,
     discount > 0 ? `Discount    : - ${formatCurrency(discount)}` : null,
     `Advance Paid: - ${formatCurrency(advance)}`,
     '========================================',

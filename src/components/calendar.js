@@ -450,6 +450,15 @@ function showAdminBookingModal(booking) {
             <div class="section-title">Additional Guests</div>
             ${booking.additionalGuests.map(g => `<div style="font-size:0.85rem;margin-bottom:4px">👤 ${g.name} ${g.passport ? '— '+g.passport : ''}</div>`).join('')}
           ` : ''}
+          ${booking.extraCharges?.length ? `
+            <div class="section-title" style="margin-top:14px">✨ Extra Charges</div>
+            ${booking.extraCharges.map(ec => `
+              <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:4px; padding:2px 0">
+                <span>➕ ${ec.details || 'Extra Service'}</span>
+                <span style="font-weight:600">LKR ${Number(ec.amount||0).toLocaleString()}</span>
+              </div>
+            `).join('')}
+          ` : ''}
           ${booking.notes ? `<div style="margin-top:12px;padding:10px;background:var(--clr-surface);border-radius:6px;font-size:0.85rem;color:var(--clr-text-muted)">📝 ${booking.notes}</div>` : ''}
         </div>
         <div class="modal-footer">

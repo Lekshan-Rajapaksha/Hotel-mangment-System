@@ -31,6 +31,7 @@ export async function openBookingModal(opts = {}) {
   const checkOutVal = b.checkOut ? toDateStr(b.checkOut?.toDate ? b.checkOut.toDate() : new Date(b.checkOut)) : (defaultDate ? toDateStr(new Date(new Date(defaultDate).getTime() + 86400000)) : tomorrow);
 
   const members = b.additionalGuests || [];
+  const extraCharges = b.extraCharges || [];
 
   const html = `
     <div class="modal-overlay" id="booking-modal-overlay">
@@ -258,6 +259,26 @@ export async function openBookingModal(opts = {}) {
 
             <div class="divider"></div>
 
+            <!-- === EXTRA CHARGES === -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
+              <div>
+                <div class="section-title" style="margin-bottom:2px">✨ Extra Charges</div>
+                <div style="font-size:0.78rem; color:var(--clr-text-muted)">Airport transfer, laundry, extra bed, scooter rental, etc.</div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" id="add-extra-charge-btn">+ Add Extra Charge</button>
+            </div>
+
+            <div id="extra-charges-container">
+              ${extraCharges.map((ec, i) => renderExtraChargeRow(i, ec)).join('')}
+            </div>
+
+            <div id="extra-charges-total-bar" style="display:flex; justify-content:space-between; align-items:center; padding:9px 14px; background:var(--clr-surface-alt, rgba(255,255,255,0.03)); border:1px dashed var(--clr-border); border-radius:6px; margin-bottom:14px; font-size:0.85rem">
+              <span style="color:var(--clr-text-muted); font-weight:600">Total Extra Charges:</span>
+              <span id="extra-charges-total-val" style="font-weight:700; color:var(--clr-primary)">LKR 0.00</span>
+            </div>
+
+            <div class="divider"></div>
+
             <!-- === ADDITIONAL GUESTS === -->
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px">
               <div class="section-title" style="margin-bottom:0">👨‍👩‍👧 Additional Guests</div>
@@ -297,6 +318,33 @@ export async function openBookingModal(opts = {}) {
   updateRemaining();
   updateAvailabilityWarning();
   calcAndFill(); // auto-calculate on open if dates & type are set
+  updateExtraChargesSummary();
+}
+
+function renderExtraChargeRow(index, data = {}) {
+  return `
+    <div class="form-row extra-charge-row" data-index="${index}" style="margin-bottom:10px; align-items:flex-end">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Charge Details / Service</label>
+        <input type="text" class="form-control extra-charge-details" placeholder="e.g. Airport Transfer, Laundry, Scooter..." value="${escapeHtml(data.details || '')}" />
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Amount (LKR)</label>
+        <input type="number" class="form-control extra-charge-amount" placeholder="0.00" min="0" step="0.01" value="${data.amount !== undefined ? data.amount : ''}" />
+      </div>
+      <button type="button" class="btn btn-danger btn-sm remove-extra-charge" data-index="${index}" style="flex-shrink:0; height:42px" title="Remove Charge">✕</button>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function renderGuestRow(index, data = {}) {
@@ -382,6 +430,17 @@ function bindModalEvents() {
   document.getElementById('booking-direct-print-btn')?.addEventListener('click', () => {
     if (currentBooking) openPrintBill(currentBooking);
   });
+
+  // Add Extra Charge
+  document.getElementById('add-extra-charge-btn')?.addEventListener('click', () => {
+    const container = document.getElementById('extra-charges-container');
+    const count = container.querySelectorAll('.extra-charge-row').length;
+    container.insertAdjacentHTML('beforeend', renderExtraChargeRow(count));
+    bindExtraChargeEvents();
+    container.querySelector('.extra-charge-row:last-child .extra-charge-details')?.focus();
+  });
+
+  bindExtraChargeEvents();
 
   // Delete
   document.getElementById('booking-delete-btn')?.addEventListener('click', handleDelete);
@@ -539,30 +598,66 @@ function updateRemaining() {
   }
 }
 
+function getExtraChargesTotal() {
+  let total = 0;
+  document.querySelectorAll('.extra-charge-row').forEach(row => {
+    const amt = parseFloat(row.querySelector('.extra-charge-amount')?.value) || 0;
+    total += Math.max(0, amt);
+  });
+  return total;
+}
+
+function updateExtraChargesSummary() {
+  const extraTotal = getExtraChargesTotal();
+  const display = document.getElementById('extra-charges-total-val');
+  if (display) {
+    display.textContent = formatCurrency(extraTotal);
+  }
+}
+
+function bindExtraChargeEvents() {
+  document.querySelectorAll('.remove-extra-charge').forEach(btn => {
+    btn.onclick = () => {
+      btn.closest('.extra-charge-row')?.remove();
+      calcAndFill();
+    };
+  });
+
+  document.querySelectorAll('.extra-charge-amount').forEach(input => {
+    input.oninput = () => {
+      calcAndFill();
+    };
+  });
+}
+
 /**
- * Auto-calculate the total price based on price per day.
+ * Auto-calculate the total price based on price per day plus extra charges.
  */
 function calcAndFill() {
   const ci      = document.getElementById('bk-checkin')?.value;
   const co      = document.getElementById('bk-checkout')?.value;
   const pricePerDay = parseFloat(document.getElementById('bk-priceperday')?.value) || 0;
+  const extraTotal = getExtraChargesTotal();
+  updateExtraChargesSummary();
 
-  if (!ci || !co) return;
-
-  const nights = Math.max(0, Math.round((new Date(co) - new Date(ci)) / 86400000));
-  if (nights <= 0) return;
-
-  const grandTotal = pricePerDay * nights;
-
-  // --- Fill the Full Price input ---
   const priceInput = document.getElementById('bk-fullprice');
-  if (priceInput && grandTotal > 0) {
-    priceInput.value = grandTotal.toFixed(2);
-    priceInput.dispatchEvent(new Event('input')); // trigger remaining recalc
-  } else if (priceInput && grandTotal === 0) {
-    priceInput.value = '';
-    priceInput.dispatchEvent(new Event('input'));
+  if (!priceInput) return;
+
+  if (ci && co) {
+    const nights = Math.max(0, Math.round((new Date(co) - new Date(ci)) / 86400000));
+    if (nights > 0 && pricePerDay > 0) {
+      const grandTotal = (pricePerDay * nights) + extraTotal;
+      priceInput.value = grandTotal.toFixed(2);
+      updateRemaining();
+      return;
+    }
   }
+
+  // If pricePerDay is not set or 0, but extra charges exist and price is empty
+  if (extraTotal > 0 && (!priceInput.value || parseFloat(priceInput.value) === 0)) {
+    priceInput.value = extraTotal.toFixed(2);
+  }
+  updateRemaining();
 }
 
 async function saveBooking(andPrint = false) {
@@ -599,6 +694,17 @@ async function saveBooking(andPrint = false) {
     if (gName) additionalGuests.push({ name: gName, passport: gPass || '' });
   });
 
+  // Collect extra charges
+  const extraCharges = [];
+  document.querySelectorAll('.extra-charge-row').forEach(row => {
+    const details = row.querySelector('.extra-charge-details')?.value?.trim();
+    const amount = parseFloat(row.querySelector('.extra-charge-amount')?.value) || 0;
+    if (details || amount > 0) {
+      extraCharges.push({ details: details || 'Extra Service', amount });
+    }
+  });
+  const extraChargesTotal = extraCharges.reduce((sum, item) => sum + item.amount, 0);
+
   const data = {
     guestName: name,
     phone,
@@ -627,6 +733,8 @@ async function saveBooking(andPrint = false) {
       : '',
     notes: document.getElementById('bk-notes')?.value?.trim() || '',
     additionalGuests,
+    extraCharges,
+    extraChargesTotal,
   };
 
   showSpinner();
