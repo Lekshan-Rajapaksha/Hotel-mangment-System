@@ -3,7 +3,7 @@
    ============================================ */
 
 /* --- Google Font Import --- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* --- CSS Custom Properties — Light Theme --- */
 :root {
@@ -1612,12 +1612,63 @@ select.form-control {
     print-color-adjust: exact !important;
   }
 
+  .thermal-receipt {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+    font-weight: 600 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    -webkit-font-smoothing: antialiased !important;
+    text-rendering: optimizeLegibility !important;
+  }
+
   .thermal-receipt,
   .thermal-receipt * {
-    color: #000 !important;
-    background: transparent !important;
+    color: #000000 !important;
     page-break-inside: avoid;
     break-inside: avoid;
+    -webkit-font-smoothing: antialiased !important;
+  }
+
+  .thermal-receipt .thermal-bold {
+    font-weight: 800 !important;
+  }
+
+  .thermal-receipt .thermal-hotel-title,
+  .thermal-receipt .thermal-grand-row,
+  .thermal-receipt .thermal-grand-amount,
+  .thermal-receipt .thermal-status-tag {
+    font-weight: 900 !important;
+  }
+
+  .thermal-barcode-stripes {
+    background: repeating-linear-gradient(
+      90deg,
+      #000 0px,
+      #000 2px,
+      #fff 2px,
+      #fff 4px,
+      #000 4px,
+      #000 7px,
+      #fff 7px,
+      #fff 9px,
+      #000 9px,
+      #000 10px,
+      #fff 10px,
+      #fff 13px,
+      #000 13px,
+      #000 16px,
+      #fff 16px,
+      #fff 18px
+    ) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .mode-a4 .print-bill,
+  .mode-a4 .print-bill * {
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 
@@ -1704,9 +1755,14 @@ select.form-control {
   max-width: 100%;
   background: #ffffff;
   color: #000000;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 11.5px;
-  line-height: 1.38;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
   padding: 18px 14px 24px 14px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
   border-radius: 4px;
@@ -1717,56 +1773,62 @@ select.form-control {
 }
 
 .thermal-logo {
-  width: 44mm;
-  max-width: 150px;
-  max-height: 52px;
+  width: 46mm;
+  max-width: 160px;
+  max-height: 54px;
   object-fit: contain;
-  margin: 0 auto 6px;
+  margin: 0 auto 8px;
   display: block;
-  filter: grayscale(100%) contrast(160%);
+  filter: grayscale(100%) contrast(180%);
 }
 
 .thermal-header {
   text-align: center;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .thermal-hotel-title {
-  font-size: 13.5px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
   line-height: 1.25;
   margin-top: 4px;
+  color: #000000;
 }
 
 .thermal-hotel-sub {
-  font-size: 10px;
-  line-height: 1.3;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #000000;
 }
 
 .thermal-hotel-contact {
-  font-size: 9.5px;
-  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 3px;
+  color: #000000;
 }
 
 .thermal-doc-title {
   text-align: center;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  margin: 6px 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 8px 0;
+  color: #000000;
 }
 
 .thermal-divider-dashed {
-  border-top: 1px dashed #000000;
+  border-top: 1.5px dashed #000000;
   margin: 8px 0;
   width: 100%;
 }
 
 .thermal-divider-double {
-  border-top: 2px solid #000000;
-  border-bottom: 1px solid #000000;
-  height: 3px;
+  border-top: 2.5px solid #000000;
+  border-bottom: 1.5px solid #000000;
+  height: 4px;
   margin: 8px 0;
   width: 100%;
 }
@@ -1776,96 +1838,122 @@ select.form-control {
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
-  margin-bottom: 3px;
+  margin-bottom: 3.5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #000000;
 }
 
 .thermal-bold {
-  font-weight: 700;
+  font-weight: 800;
+  color: #000000;
 }
 
 .thermal-section-title {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-bottom: 5px;
+  color: #000000;
 }
 
 .thermal-indent {
-  padding-left: 8px;
+  padding-left: 10px;
 }
 
 .thermal-sub-block {
-  margin-top: 4px;
+  margin-top: 5px;
 }
 
 .thermal-sub-label {
-  font-size: 10px;
+  font-size: 11px;
   margin-bottom: 2px;
-  font-weight: 600;
+  font-weight: 700;
+  color: #000000;
 }
 
 .thermal-item-block {
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 
 .thermal-item-name {
-  margin-bottom: 1px;
+  margin-bottom: 2px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #000000;
+}
+
+.thermal-totals-list {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #000000;
 }
 
 .thermal-grand-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14.5px;
-  font-weight: 800;
-  padding: 4px 0;
+  font-size: 16px;
+  font-weight: 900;
+  padding: 5px 0;
+  color: #000000;
 }
 
 .thermal-grand-label {
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  font-weight: 900;
 }
 
 .thermal-grand-amount {
-  font-size: 15px;
+  font-size: 17px;
+  font-weight: 900;
 }
 
 .thermal-status-tag {
   text-align: center;
-  font-size: 11.5px;
-  font-weight: 800;
-  padding: 5px 8px;
-  margin: 8px 0 4px;
-  border: 1.5px solid #000000;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 6px 8px;
+  margin: 8px 0 5px;
+  border: 2px solid #000000;
   letter-spacing: 0.06em;
+  color: #000000;
 }
 
 .thermal-status-tag.paid {
-  background: #000000 !important;
-  color: #ffffff !important;
+  background: #000000;
+  color: #ffffff;
 }
 
 .thermal-notes {
-  font-size: 10.5px;
-  line-height: 1.35;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
   padding: 2px 0;
   word-break: break-word;
+  color: #000000;
 }
 
 .thermal-footer {
   text-align: center;
-  font-size: 10px;
-  line-height: 1.4;
-  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin-top: 6px;
+  color: #000000;
 }
 
 .thermal-thanks {
-  font-weight: 700;
-  font-size: 11px;
-  margin-top: 6px;
+  font-weight: 800;
+  font-size: 12.5px;
+  margin-top: 7px;
+  color: #000000;
 }
 
 .thermal-sub-thanks {
-  font-size: 9.5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #000000;
 }
 
 /* Simulated Barcode */
@@ -1877,7 +1965,7 @@ select.form-control {
 .thermal-barcode-stripes {
   height: 32px;
   width: 170px;
-  margin: 0 auto 3px;
+  margin: 0 auto 4px;
   background: repeating-linear-gradient(
     90deg,
     #000 0px,
@@ -1900,19 +1988,22 @@ select.form-control {
 }
 
 .thermal-barcode-code {
-  font-family: monospace;
-  font-size: 9.5px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
   letter-spacing: 0.15em;
+  color: #000000;
 }
 
 .thermal-timestamp {
-  font-size: 8.5px;
-  color: #475569;
+  font-size: 10px;
+  font-weight: 600;
+  color: #000000;
   margin-top: 6px;
 }
 
 .thermal-cutter-feed {
-  height: 20px;
+  height: 22px;
 }
 
 /* =======================================================
@@ -1924,7 +2015,8 @@ select.form-control {
   margin: 0 auto;
   padding: 40px;
   background: #fff;
-  color: #1a1a2e;
+  color: #0f172a;
+  font-weight: 500;
 }
 
 .print-bill.a4-invoice {
@@ -1965,41 +2057,43 @@ select.form-control {
 }
 
 .print-hotel-sub {
-  font-size: 0.85rem;
-  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
   margin-top: 4px;
 }
 
 .print-bill-no {
   text-align: right;
-  font-size: 0.85rem;
-  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
 }
 
 .print-bill-no strong {
   display: block;
-  font-size: 1.1rem;
-  color: #1a1a2e;
-  font-weight: 700;
+  font-size: 1.15rem;
+  color: #0f172a;
+  font-weight: 800;
   margin-bottom: 4px;
 }
 
 .print-bill-phone {
   margin-top: 8px;
   font-size: 0.88rem;
-  color: #1a1a2e;
-  font-weight: 600;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .print-section-title {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #64748b;
-  font-weight: 700;
+  color: #0f172a;
+  font-weight: 800;
   margin-bottom: 10px;
   padding-bottom: 4px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1.5px solid #cbd5e1;
 }
 
 .print-info-grid {
@@ -2009,30 +2103,32 @@ select.form-control {
   margin-bottom: 24px;
 }
 
-.print-info-label { font-size: 0.72rem; color: #64748b; font-weight: 600; }
-.print-info-value { font-size: 0.9rem; color: #1a1a2e; font-weight: 600; }
+.print-info-label { font-size: 0.75rem; color: #475569; font-weight: 700; }
+.print-info-value { font-size: 0.95rem; color: #0f172a; font-weight: 700; }
 
 .print-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 24px;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
 }
 
 .print-table th {
   padding: 10px 12px;
-  background: #f1f5f9;
+  background: #e2e8f0;
   text-align: left;
-  font-weight: 700;
-  font-size: 0.75rem;
-  color: #64748b;
+  font-weight: 800;
+  font-size: 0.78rem;
+  color: #0f172a;
   text-transform: uppercase;
+  border-bottom: 1.5px solid #cbd5e1;
 }
 
 .print-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #1a1a2e;
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-weight: 600;
 }
 
 .print-totals {
@@ -2047,20 +2143,23 @@ select.form-control {
   display: flex;
   gap: 48px;
   align-items: center;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
 }
 
-.print-total-label { color: #64748b; }
-.print-total-value { font-weight: 700; min-width: 100px; text-align: right; }
-.print-grand-total { font-size: 1.1rem; color: #4f72f5; }
+.print-total-label { color: #334155; font-weight: 700; }
+.print-total-value { font-weight: 800; min-width: 100px; text-align: right; color: #0f172a; }
+.print-grand-total { font-size: 1.15rem; color: #4f72f5; font-weight: 800; }
 
 .print-footer {
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1.5px solid #e2e8f0;
   text-align: center;
-  color: #94a3b8;
-  font-size: 0.75rem;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 /* --- Charts Container --- */
