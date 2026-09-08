@@ -454,6 +454,7 @@ function showAdminBookingModal(booking) {
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" id="abv-close-2">Close</button>
+          <button class="btn btn-secondary" id="abv-print-btn" style="display:inline-flex;align-items:center;gap:6px">🖨️ Print Bill</button>
           <button class="btn btn-danger" id="abv-delete-btn">🗑 Delete Booking</button>
         </div>
       </div>
@@ -465,6 +466,9 @@ function showAdminBookingModal(booking) {
   const closeAdminView = () => document.getElementById('admin-booking-view')?.remove();
   document.getElementById('abv-close')?.addEventListener('click', closeAdminView);
   document.getElementById('abv-close-2')?.addEventListener('click', closeAdminView);
+  document.getElementById('abv-print-btn')?.addEventListener('click', () => {
+    openPrintBill(booking);
+  });
   document.getElementById('admin-booking-view')?.addEventListener('click', e => {
     if (e.target.id === 'admin-booking-view') closeAdminView();
   });

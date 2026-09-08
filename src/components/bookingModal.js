@@ -273,6 +273,11 @@ export async function openBookingModal(opts = {}) {
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" id="booking-cancel-btn">Cancel</button>
           ${booking ? `<button type="button" class="btn btn-danger btn-sm" id="booking-delete-btn">🗑 Delete</button>` : ''}
+          ${booking ? `
+            <button type="button" class="btn btn-secondary" id="booking-direct-print-btn" style="display:flex;align-items:center;gap:6px">
+              🖨️ Print Bill
+            </button>
+          ` : ''}
           <button type="button" class="btn btn-accent" id="booking-save-btn">
             ${booking ? '💾 Update Booking' : '✅ Confirm Booking'}
           </button>
@@ -372,6 +377,11 @@ function bindModalEvents() {
 
   // Save + Print
   document.getElementById('booking-save-print-btn')?.addEventListener('click', () => saveBooking(true));
+
+  // Direct Print
+  document.getElementById('booking-direct-print-btn')?.addEventListener('click', () => {
+    if (currentBooking) openPrintBill(currentBooking);
+  });
 
   // Delete
   document.getElementById('booking-delete-btn')?.addEventListener('click', handleDelete);

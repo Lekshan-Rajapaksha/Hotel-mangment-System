@@ -3,6 +3,7 @@ import { subscribeAllBookings } from '../../services/bookingService.js';
 import { formatDate, formatCurrency, nightCount } from '../../utils/dateHelpers.js';
 import { deleteBooking } from '../../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
+import { openPrintBill } from '../../components/printBill.js';
 
 let unsubscribe = null;
 let allBookings = [];
@@ -183,6 +184,9 @@ function renderTable(bookings) {
         <td data-label="Status" style="color:${statusColor}; font-weight:600; font-size:0.8rem; white-space:nowrap">${statusLabel}</td>
         <td data-label="Actions">
           <div class="flex gap-1" style="justify-content:flex-end">
+            <button class="btn btn-secondary btn-sm print-bill-btn" data-id="${b.id}" title="Print Bill" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;font-size:0.8rem">
+              🖨️ Print
+            </button>
             ${!isCancelled ? `<button class="btn btn-danger btn-sm delete-bill-btn" data-id="${b.id}" title="Delete">🗑</button>` : ''}
           </div>
         </td>
@@ -211,6 +215,9 @@ function renderTable(bookings) {
             <div><div style="color:var(--clr-text-muted); font-size:0.7rem; text-transform:uppercase; font-weight:700">Advance</div><div style="font-weight:600; color:var(--clr-success)">${formatCurrency(b.advancePaid||0)}</div></div>
           </div>
           <div class="flex gap-2" style="justify-content:flex-end; border-top:1px solid var(--clr-border); padding-top:12px">
+            <button class="btn btn-primary btn-sm print-bill-btn" data-id="${b.id}" style="display:inline-flex;align-items:center;gap:6px">
+              🖨️ Print Bill
+            </button>
             ${!isCancelled ? `<button class="btn btn-danger btn-sm delete-bill-btn" data-id="${b.id}" title="Delete">🗑 Delete Bill</button>` : ''}
           </div>
         </div>
@@ -221,6 +228,14 @@ function renderTable(bookings) {
   tbody.innerHTML = tableHtml;
   mobileList.innerHTML = mobileHtml;
 
+  // Bind print
+  document.querySelectorAll('.print-bill-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const booking = allBookings.find(b => b.id === btn.dataset.id);
+      if (booking) openPrintBill(booking);
+    });
+  });
 
   // Bind delete
   document.querySelectorAll('.delete-bill-btn').forEach(btn => {

@@ -1496,16 +1496,20 @@ select.form-control {
 
 /* --- Print Styles --- */
 @page {
-  size: A4 portrait;
-  margin: 10mm;
+  size: 80mm auto;
+  margin: 0;
 }
 
 @media print {
   html, body {
-    width: 210mm;
+    width: 80mm !important;
+    max-width: 80mm !important;
     margin: 0 !important;
+    padding: 0 !important;
     background: #fff !important;
     color: #000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   body > *:not(#print-bill-overlay) {
@@ -1519,77 +1523,401 @@ select.form-control {
     background: #fff !important;
     backdrop-filter: none !important;
     padding: 0 !important;
+    margin: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
   }
 
   #print-bill-overlay .modal {
-    max-width: none !important;
-    width: 100% !important;
+    max-width: 80mm !important;
+    width: 80mm !important;
     max-height: none !important;
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
   }
 
   #print-bill-overlay .modal-body {
     padding: 0 !important;
+    margin: 0 !important;
     overflow: visible !important;
+    background: #fff !important;
   }
 
   .no-print,
-  .modal-header.no-print {
+  .modal-header.no-print,
+  .print-modal-toolbar {
     display: none !important;
   }
 
-  .print-bill {
+  /* Thermal print mode */
+  .mode-thermal .print-preview-stage {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .mode-thermal #thermal-receipt-view {
     display: block !important;
+    width: 76mm !important;
+    max-width: 76mm !important;
+    margin: 0 auto !important;
+    padding: 3mm 2mm 15mm 2mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  .mode-thermal #a4-invoice-view {
+    display: none !important;
+  }
+
+  /* A4 print mode */
+  .mode-a4,
+  .mode-a4 html,
+  .mode-a4 body {
+    width: 210mm !important;
+    max-width: 210mm !important;
+  }
+
+  .mode-a4 #print-bill-overlay {
+    width: 210mm !important;
+    max-width: 210mm !important;
+  }
+
+  .mode-a4 #print-bill-overlay .modal {
+    width: 210mm !important;
+    max-width: 210mm !important;
+  }
+
+  .mode-a4 #thermal-receipt-view {
+    display: none !important;
+  }
+
+  .mode-a4 #a4-invoice-view {
+    display: block !important;
+    width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
-    padding: 14mm 16mm 12mm !important;
-    color: #111827 !important;
+    padding: 10mm 15mm !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .thermal-receipt,
+  .thermal-receipt * {
+    color: #000 !important;
+    background: transparent !important;
     page-break-inside: avoid;
     break-inside: avoid;
   }
-
-  .print-bill * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .print-header {
-    margin-bottom: 18px;
-    padding-bottom: 14px;
-  }
-
-  .print-hotel-logo {
-    width: 84px;
-    height: 84px;
-  }
-
-  .print-section-title {
-    margin-bottom: 8px;
-  }
-
-  .print-info-grid {
-    gap: 8px 18px;
-    margin-bottom: 16px;
-  }
-
-  .print-table {
-    margin-bottom: 16px;
-  }
-
-  .print-totals {
-    margin-bottom: 20px;
-  }
-
-  .print-footer {
-    margin-top: 24px;
-    padding-top: 12px;
-  }
-
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
+/* --- Print Bill Modal & Toolbar Styles --- */
+.print-bill-modal {
+  max-width: 760px;
+  width: 95%;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.print-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  flex-wrap: wrap;
+}
+
+.print-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.print-format-toggle {
+  display: inline-flex;
+  background: var(--clr-surface-alt, #f1f5f9);
+  padding: 3px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--clr-border);
+}
+
+.print-fmt-btn {
+  border: none;
+  background: transparent;
+  color: var(--clr-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.print-fmt-btn:hover {
+  color: var(--clr-text);
+}
+
+.print-fmt-btn.active {
+  background: var(--clr-surface, #ffffff);
+  color: var(--clr-primary);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.print-modal-scroll {
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.08);
+  padding: 24px 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.print-preview-stage {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* =======================================================
+   80MM THERMAL RECEIPT STYLES
+   ======================================================= */
+.thermal-receipt {
+  width: 320px;
+  max-width: 100%;
+  background: #ffffff;
+  color: #000000;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11.5px;
+  line-height: 1.38;
+  padding: 18px 14px 24px 14px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  box-sizing: border-box;
+  margin: 0 auto;
+  border-top: 4px solid #0f172a;
+  position: relative;
+}
+
+.thermal-logo {
+  width: 44mm;
+  max-width: 150px;
+  max-height: 52px;
+  object-fit: contain;
+  margin: 0 auto 6px;
+  display: block;
+  filter: grayscale(100%) contrast(160%);
+}
+
+.thermal-header {
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.thermal-hotel-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  margin-top: 4px;
+}
+
+.thermal-hotel-sub {
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.thermal-hotel-contact {
+  font-size: 9.5px;
+  margin-top: 2px;
+}
+
+.thermal-doc-title {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 6px 0;
+}
+
+.thermal-divider-dashed {
+  border-top: 1px dashed #000000;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.thermal-divider-double {
+  border-top: 2px solid #000000;
+  border-bottom: 1px solid #000000;
+  height: 3px;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.thermal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.thermal-bold {
+  font-weight: 700;
+}
+
+.thermal-section-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.thermal-indent {
+  padding-left: 8px;
+}
+
+.thermal-sub-block {
+  margin-top: 4px;
+}
+
+.thermal-sub-label {
+  font-size: 10px;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.thermal-item-block {
+  margin-bottom: 5px;
+}
+
+.thermal-item-name {
+  margin-bottom: 1px;
+}
+
+.thermal-grand-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14.5px;
+  font-weight: 800;
+  padding: 4px 0;
+}
+
+.thermal-grand-label {
+  letter-spacing: 0.05em;
+}
+
+.thermal-grand-amount {
+  font-size: 15px;
+}
+
+.thermal-status-tag {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 5px 8px;
+  margin: 8px 0 4px;
+  border: 1.5px solid #000000;
+  letter-spacing: 0.06em;
+}
+
+.thermal-status-tag.paid {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+.thermal-notes {
+  font-size: 10.5px;
+  line-height: 1.35;
+  padding: 2px 0;
+  word-break: break-word;
+}
+
+.thermal-footer {
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.thermal-thanks {
+  font-weight: 700;
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.thermal-sub-thanks {
+  font-size: 9.5px;
+}
+
+/* Simulated Barcode */
+.thermal-barcode {
+  margin: 10px auto 4px;
+  text-align: center;
+}
+
+.thermal-barcode-stripes {
+  height: 32px;
+  width: 170px;
+  margin: 0 auto 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    #000 0px,
+    #000 2px,
+    #fff 2px,
+    #fff 4px,
+    #000 4px,
+    #000 7px,
+    #fff 7px,
+    #fff 9px,
+    #000 9px,
+    #000 10px,
+    #fff 10px,
+    #fff 13px,
+    #000 13px,
+    #000 16px,
+    #fff 16px,
+    #fff 18px
+  );
+}
+
+.thermal-barcode-code {
+  font-family: monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.15em;
+}
+
+.thermal-timestamp {
+  font-size: 8.5px;
+  color: #475569;
+  margin-top: 6px;
+}
+
+.thermal-cutter-feed {
+  height: 20px;
+}
+
+/* =======================================================
+   A4 INVOICE VIEW STYLES
+   ======================================================= */
 .print-bill {
   font-family: var(--font);
   max-width: 680px;
@@ -1597,6 +1925,13 @@ select.form-control {
   padding: 40px;
   background: #fff;
   color: #1a1a2e;
+}
+
+.print-bill.a4-invoice {
+  width: 680px;
+  max-width: 100%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
 }
 
 .print-header {
