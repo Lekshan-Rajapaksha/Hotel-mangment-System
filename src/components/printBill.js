@@ -10,8 +10,11 @@ export function openPrintBill(booking) {
   const nights = nightCount(b.checkIn, b.checkOut);
   const extraChargesList = Array.isArray(b.extraCharges) ? b.extraCharges : [];
   const extraTotal = extraChargesList.reduce((sum, ec) => sum + Number(ec.amount || 0), 0);
+  const serviceChargeTotal = b.serviceChargeTotal !== undefined
+    ? Number(b.serviceChargeTotal)
+    : extraChargesList.reduce((sum, ec) => sum + (ec.isMeal ? (Number(ec.serviceCharge) || (Number(ec.amount || 0) * 0.10)) : 0), 0);
   const totalPrice = Number(b.fullPrice || 0);
-  const roomPriceTotal = b.pricePerDay ? (Number(b.pricePerDay) * nights) : Math.max(0, totalPrice - extraTotal);
+  const roomPriceTotal = b.pricePerDay ? (Number(b.pricePerDay) * nights) : Math.max(0, totalPrice - extraTotal - serviceChargeTotal);
   const pricePerNight = nights > 0 ? (roomPriceTotal / nights) : roomPriceTotal;
   const billNo = `BCH-${String(b.id || Date.now()).slice(-6).toUpperCase()}`;
   const now = new Date();
@@ -182,7 +185,7 @@ export function openPrintBill(booking) {
                 <div class="thermal-item-name thermal-bold">Extra Charges / Services:</div>
                 ${extraChargesList.map(ec => `
                   <div class="thermal-row thermal-indent">
-                    <span>+ ${escapeHtml(ec.details || 'Extra Charge')}</span>
+                    <span>+ ${escapeHtml(ec.details || 'Extra Charge')}${ec.isMeal ? ' (Meal)' : ''}</span>
                     <span class="thermal-bold">${formatCurrency(ec.amount || 0)}</span>
                   </div>
                 `).join('')}
@@ -208,6 +211,11 @@ export function openPrintBill(booking) {
                 <div class="thermal-row">
                   <span>Extra Charges:</span>
                   <span>+ ${formatCurrency(extraTotal)}</span>
+                </div>` : ''}
+                ${serviceChargeTotal > 0 ? `
+                <div class="thermal-row">
+                  <span>Service Charge (10% Meals):</span>
+                  <span>+ ${formatCurrency(serviceChargeTotal)}</span>
                 </div>` : ''}
                 <div class="thermal-row">
                   <span>Subtotal:</span>
@@ -235,6 +243,12 @@ export function openPrintBill(booking) {
                 <span class="thermal-grand-label">BALANCE DUE:</span>
                 <span class="thermal-grand-amount">${formatCurrency(balance)}</span>
               </div>
+
+              ${serviceChargeTotal > 0 ? `
+              <div class="thermal-row" style="margin-top:6px; font-size:0.8rem; justify-content:space-between">
+                <span>Total Service Charge (10%):</span>
+                <span class="thermal-bold">${formatCurrency(serviceChargeTotal)}</span>
+              </div>` : ''}
 
               <div class="thermal-divider-double"></div>
 
@@ -377,12 +391,17 @@ export function openPrintBill(booking) {
                   </tr>
                   ${extraChargesList.map(ec => `
                   <tr>
-                    <td>Extra: ${escapeHtml(ec.details || 'Service')}</td>
+                    <td>Extra: ${escapeHtml(ec.details || 'Service')}${ec.isMeal ? ' <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 6px; border-radius:4px; font-weight:600">🍽️ Meal</span>' : ''}</td>
                     <td>1</td>
                     <td>${formatCurrency(ec.amount || 0)}</td>
                     <td>${formatCurrency(ec.amount || 0)}</td>
                   </tr>
                   `).join('')}
+                  ${serviceChargeTotal > 0 ? `
+                  <tr style="background:#f8fafc; font-weight:600">
+                    <td colspan="3">🍽️ Service Charge (10% on Meals)</td>
+                    <td style="color:#2563eb">+ ${formatCurrency(serviceChargeTotal)}</td>
+                  </tr>` : ''}
                   ${b.meals !== 'None' ? `
                   <tr>
                     <td colspan="3">${getMealLabel(b.meals)} (Included)</td>
@@ -407,6 +426,11 @@ export function openPrintBill(booking) {
                   <span class="print-total-label">Extra Charges</span>
                   <span class="print-total-value">+ ${formatCurrency(extraTotal)}</span>
                 </div>` : ''}
+                ${serviceChargeTotal > 0 ? `
+                <div class="print-total-row">
+                  <span class="print-total-label">Service Charge (10% Meals)</span>
+                  <span class="print-total-value" style="color:#2563eb; font-weight:700">+ ${formatCurrency(serviceChargeTotal)}</span>
+                </div>` : ''}
                 <div class="print-total-row">
                   <span class="print-total-label">Subtotal</span>
                   <span class="print-total-value">${formatCurrency(totalPrice)}</span>
@@ -425,6 +449,11 @@ export function openPrintBill(booking) {
                   <span style="font-weight:700">Balance Due</span>
                   <span class="print-total-value" style="font-size:1.3rem; color:#4f72f5; font-weight:800">${formatCurrency(balance)}</span>
                 </div>
+                ${serviceChargeTotal > 0 ? `
+                <div class="print-total-row" style="margin-top:6px; font-size:0.8rem; color:#64748b">
+                  <span>Total Service Charge Included</span>
+                  <span style="font-weight:700; color:#1e293b">${formatCurrency(serviceChargeTotal)}</span>
+                </div>` : ''}
               </div>
 
               <!-- Footer -->
@@ -479,7 +508,7 @@ export function openPrintBill(booking) {
 
   // Bind Copy Button (Text receipt for WhatsApp / SMS)
   document.getElementById('bill-copy-btn')?.addEventListener('click', () => {
-    const text = generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, roomPriceTotal, totalPrice, discount, advance, balance, isPaid);
+    const text = generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, roomPriceTotal, totalPrice, discount, advance, balance, isPaid, serviceChargeTotal);
     navigator.clipboard.writeText(text).then(() => {
       showToast('Receipt details copied to clipboard!', 'success');
     }).catch(() => {
@@ -526,7 +555,7 @@ function setPrintPageStyle(mode) {
 }
 
 /** Plaintext receipt formatter for clipboard copy */
-function generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, roomPriceTotal, totalPrice, discount, advance, balance, isPaid) {
+function generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, roomPriceTotal, totalPrice, discount, advance, balance, isPaid, serviceChargeTotal = 0) {
   const extraList = Array.isArray(b.extraCharges) ? b.extraCharges : [];
   return [
     '========================================',
@@ -546,12 +575,14 @@ function generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, r
     `Meal Plan   : ${getMealLabel(b.meals)}`,
     '----------------------------------------',
     `Room Charge : ${formatCurrency(roomPriceTotal)}`,
-    ...(extraList.map(ec => `Extra: ${ec.details || 'Service'}: ${formatCurrency(ec.amount || 0)}`)),
-    extraList.length > 0 ? `Subtotal    : ${formatCurrency(totalPrice)}` : null,
+    ...(extraList.map(ec => `Extra: ${ec.details || 'Service'}${ec.isMeal ? ' (Meal)' : ''}: ${formatCurrency(ec.amount || 0)}`)),
+    serviceChargeTotal > 0 ? `Service Charge (10% Meals): + ${formatCurrency(serviceChargeTotal)}` : null,
+    extraList.length > 0 || serviceChargeTotal > 0 ? `Subtotal    : ${formatCurrency(totalPrice)}` : null,
     discount > 0 ? `Discount    : - ${formatCurrency(discount)}` : null,
     `Advance Paid: - ${formatCurrency(advance)}`,
     '========================================',
     `BALANCE DUE : ${formatCurrency(balance)}`,
+    serviceChargeTotal > 0 ? `Total Service Charge: ${formatCurrency(serviceChargeTotal)}` : null,
     `Status      : ${isPaid ? 'PAID IN FULL' : 'PAYMENT PENDING'}`,
     '========================================',
     'Thank you for choosing Blue Cove Hiriketiya!',

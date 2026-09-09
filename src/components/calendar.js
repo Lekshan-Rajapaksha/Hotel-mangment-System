@@ -454,10 +454,21 @@ function showAdminBookingModal(booking) {
             <div class="section-title" style="margin-top:14px">✨ Extra Charges</div>
             ${booking.extraCharges.map(ec => `
               <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:4px; padding:2px 0">
-                <span>➕ ${ec.details || 'Extra Service'}</span>
+                <span>➕ ${ec.details || 'Extra Service'}${ec.isMeal ? ' <span style="font-size:0.75rem; color:var(--clr-accent)">(Meal + 10% SC)</span>' : ''}</span>
                 <span style="font-weight:600">LKR ${Number(ec.amount||0).toLocaleString()}</span>
               </div>
             `).join('')}
+            ${(() => {
+              const sc = booking.serviceChargeTotal !== undefined
+                ? Number(booking.serviceChargeTotal)
+                : booking.extraCharges.reduce((sum, ec) => sum + (ec.isMeal ? (Number(ec.serviceCharge) || (Number(ec.amount || 0) * 0.10)) : 0), 0);
+              return sc > 0 ? `
+                <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-top:6px; padding-top:4px; border-top:1px dashed var(--clr-border); color:var(--clr-accent)">
+                  <span>🍽️ Service Charge (10% on Meals):</span>
+                  <span style="font-weight:700">+ LKR ${sc.toLocaleString()}</span>
+                </div>
+              ` : '';
+            })()}
           ` : ''}
           ${booking.notes ? `<div style="margin-top:12px;padding:10px;background:var(--clr-surface);border-radius:6px;font-size:0.85rem;color:var(--clr-text-muted)">📝 ${booking.notes}</div>` : ''}
         </div>

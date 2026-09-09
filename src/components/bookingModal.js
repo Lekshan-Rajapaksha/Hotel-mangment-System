@@ -272,9 +272,19 @@ export async function openBookingModal(opts = {}) {
               ${extraCharges.map((ec, i) => renderExtraChargeRow(i, ec)).join('')}
             </div>
 
-            <div id="extra-charges-total-bar" style="display:flex; justify-content:space-between; align-items:center; padding:9px 14px; background:var(--clr-surface-alt, rgba(255,255,255,0.03)); border:1px dashed var(--clr-border); border-radius:6px; margin-bottom:14px; font-size:0.85rem">
-              <span style="color:var(--clr-text-muted); font-weight:600">Total Extra Charges:</span>
-              <span id="extra-charges-total-val" style="font-weight:700; color:var(--clr-primary)">LKR 0.00</span>
+            <div id="extra-charges-total-bar" style="padding:10px 14px; background:var(--clr-surface-alt, rgba(255,255,255,0.03)); border:1px dashed var(--clr-border); border-radius:8px; margin-bottom:14px; font-size:0.85rem">
+              <div style="display:flex; justify-content:space-between; align-items:center">
+                <span style="color:var(--clr-text-muted); font-weight:600">Extra Charges Subtotal:</span>
+                <span id="extra-charges-base-val" style="font-weight:600">LKR 0.00</span>
+              </div>
+              <div id="extra-charges-sc-row" style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:0.82rem; color:var(--clr-accent)">
+                <span>🍽️ Service Charge (10% on Meals):</span>
+                <span id="extra-charges-sc-val" style="font-weight:700">+ LKR 0.00</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:6px; border-top:1px dashed var(--clr-border)">
+                <span style="font-weight:700; color:var(--clr-text)">Total Extra + Service Charge:</span>
+                <span id="extra-charges-total-val" style="font-weight:800; color:var(--clr-primary)">LKR 0.00</span>
+              </div>
             </div>
 
             <div class="divider"></div>
@@ -322,17 +332,24 @@ export async function openBookingModal(opts = {}) {
 }
 
 function renderExtraChargeRow(index, data = {}) {
+  const isMeal = Boolean(data.isMeal);
   return `
-    <div class="form-row extra-charge-row" data-index="${index}" style="margin-bottom:10px; align-items:flex-end">
-      <div class="form-group" style="flex:2">
-        <label class="form-label">Charge Details / Service</label>
-        <input type="text" class="form-control extra-charge-details" placeholder="e.g. Airport Transfer, Laundry, Scooter..." value="${escapeHtml(data.details || '')}" />
+    <div class="extra-charge-row" data-index="${index}" style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:10px; padding:10px 12px; background:var(--clr-surface-alt, rgba(255,255,255,0.02)); border:1px solid var(--clr-border); border-radius:8px">
+      <div class="form-group" style="flex:2; min-width:180px; margin-bottom:0">
+        <label class="form-label" style="font-size:0.78rem">Charge Details / Service</label>
+        <input type="text" class="form-control extra-charge-details" placeholder="e.g. Dinner, Laundry, Airport Transfer..." value="${escapeHtml(data.details || '')}" />
       </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Amount (LKR)</label>
+      <div class="form-group" style="flex:1; min-width:110px; margin-bottom:0">
+        <label class="form-label" style="font-size:0.78rem">Amount (LKR)</label>
         <input type="number" class="form-control extra-charge-amount" placeholder="0.00" min="0" step="0.01" value="${data.amount !== undefined ? data.amount : ''}" />
       </div>
-      <button type="button" class="btn btn-danger btn-sm remove-extra-charge" data-index="${index}" style="flex-shrink:0; height:42px" title="Remove Charge">✕</button>
+      <div class="form-group" style="display:flex; align-items:center; gap:8px; height:42px; margin-bottom:0; padding:0 4px">
+        <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.83rem; font-weight:600; cursor:pointer; color:var(--clr-text); white-space:nowrap; user-select:none" title="Tick for meals to automatically add a 10% service charge">
+          <input type="checkbox" class="extra-charge-is-meal" ${isMeal ? 'checked' : ''} style="width:17px; height:17px; accent-color:var(--clr-primary); cursor:pointer" />
+          <span>🍽️ Meal (+10% SC)</span>
+        </label>
+      </div>
+      <button type="button" class="btn btn-danger btn-sm remove-extra-charge" data-index="${index}" style="flex-shrink:0; height:42px; width:42px; padding:0; display:flex; align-items:center; justify-content:center" title="Remove Charge">✕</button>
     </div>
   `;
 }
@@ -598,21 +615,42 @@ function updateRemaining() {
   }
 }
 
-function getExtraChargesTotal() {
-  let total = 0;
+function getExtraChargesData() {
+  let extraChargesTotal = 0;
+  let serviceChargeTotal = 0;
+
   document.querySelectorAll('.extra-charge-row').forEach(row => {
     const amt = parseFloat(row.querySelector('.extra-charge-amount')?.value) || 0;
-    total += Math.max(0, amt);
+    const isMeal = !!row.querySelector('.extra-charge-is-meal')?.checked;
+    const itemAmt = Math.max(0, amt);
+    const sc = isMeal ? Math.round(itemAmt * 0.10 * 100) / 100 : 0;
+
+    extraChargesTotal += itemAmt;
+    serviceChargeTotal += sc;
   });
-  return total;
+
+  return {
+    extraChargesTotal,
+    serviceChargeTotal,
+    combinedTotal: extraChargesTotal + serviceChargeTotal
+  };
+}
+
+function getExtraChargesTotal() {
+  return getExtraChargesData().combinedTotal;
 }
 
 function updateExtraChargesSummary() {
-  const extraTotal = getExtraChargesTotal();
-  const display = document.getElementById('extra-charges-total-val');
-  if (display) {
-    display.textContent = formatCurrency(extraTotal);
-  }
+  const { extraChargesTotal, serviceChargeTotal, combinedTotal } = getExtraChargesData();
+  const baseEl = document.getElementById('extra-charges-base-val');
+  const scEl = document.getElementById('extra-charges-sc-val');
+  const totalEl = document.getElementById('extra-charges-total-val');
+  const scRow = document.getElementById('extra-charges-sc-row');
+
+  if (baseEl) baseEl.textContent = formatCurrency(extraChargesTotal);
+  if (scEl) scEl.textContent = `+ ${formatCurrency(serviceChargeTotal)}`;
+  if (totalEl) totalEl.textContent = formatCurrency(combinedTotal);
+  if (scRow) scRow.style.display = serviceChargeTotal > 0 ? 'flex' : 'none';
 }
 
 function bindExtraChargeEvents() {
@@ -628,16 +666,22 @@ function bindExtraChargeEvents() {
       calcAndFill();
     };
   });
+
+  document.querySelectorAll('.extra-charge-is-meal').forEach(cb => {
+    cb.onchange = () => {
+      calcAndFill();
+    };
+  });
 }
 
 /**
- * Auto-calculate the total price based on price per day plus extra charges.
+ * Auto-calculate the total price based on price per day plus extra charges and meal service charge.
  */
 function calcAndFill() {
   const ci      = document.getElementById('bk-checkin')?.value;
   const co      = document.getElementById('bk-checkout')?.value;
   const pricePerDay = parseFloat(document.getElementById('bk-priceperday')?.value) || 0;
-  const extraTotal = getExtraChargesTotal();
+  const { combinedTotal } = getExtraChargesData();
   updateExtraChargesSummary();
 
   const priceInput = document.getElementById('bk-fullprice');
@@ -646,7 +690,7 @@ function calcAndFill() {
   if (ci && co) {
     const nights = Math.max(0, Math.round((new Date(co) - new Date(ci)) / 86400000));
     if (nights > 0 && pricePerDay > 0) {
-      const grandTotal = (pricePerDay * nights) + extraTotal;
+      const grandTotal = (pricePerDay * nights) + combinedTotal;
       priceInput.value = grandTotal.toFixed(2);
       updateRemaining();
       return;
@@ -654,8 +698,8 @@ function calcAndFill() {
   }
 
   // If pricePerDay is not set or 0, but extra charges exist and price is empty
-  if (extraTotal > 0 && (!priceInput.value || parseFloat(priceInput.value) === 0)) {
-    priceInput.value = extraTotal.toFixed(2);
+  if (combinedTotal > 0 && (!priceInput.value || parseFloat(priceInput.value) === 0)) {
+    priceInput.value = combinedTotal.toFixed(2);
   }
   updateRemaining();
 }
@@ -699,11 +743,19 @@ async function saveBooking(andPrint = false) {
   document.querySelectorAll('.extra-charge-row').forEach(row => {
     const details = row.querySelector('.extra-charge-details')?.value?.trim();
     const amount = parseFloat(row.querySelector('.extra-charge-amount')?.value) || 0;
+    const isMeal = !!row.querySelector('.extra-charge-is-meal')?.checked;
+    const serviceCharge = isMeal ? Math.round(amount * 0.10 * 100) / 100 : 0;
     if (details || amount > 0) {
-      extraCharges.push({ details: details || 'Extra Service', amount });
+      extraCharges.push({
+        details: details || (isMeal ? 'Meal Charge' : 'Extra Service'),
+        amount,
+        isMeal,
+        serviceCharge
+      });
     }
   });
   const extraChargesTotal = extraCharges.reduce((sum, item) => sum + item.amount, 0);
+  const serviceChargeTotal = extraCharges.reduce((sum, item) => sum + (item.serviceCharge || 0), 0);
 
   const data = {
     guestName: name,
@@ -735,6 +787,7 @@ async function saveBooking(andPrint = false) {
     additionalGuests,
     extraCharges,
     extraChargesTotal,
+    serviceChargeTotal,
   };
 
   showSpinner();
