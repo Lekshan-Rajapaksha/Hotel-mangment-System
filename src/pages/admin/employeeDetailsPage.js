@@ -9,6 +9,8 @@ import {
   deleteSalaryPayment,
   paySalary,
   deleteEmployee,
+  updateEmployee,
+  addEmployee,
   calculateSalaryBreakdown
 } from '../../services/employeeService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
@@ -78,8 +80,13 @@ export function renderEmployeeDetailsPage(container) {
         <div>
           <h2 class="page-title" style="margin: 0 0 0.25rem 0;">Employees Details (Admin)</h2>
           <p style="color: var(--clr-text-muted); font-size: 0.85rem; margin: 0;">
-            Mark attendance for any date, calculate daily-rate salaries, and manage employee payouts.
+            Mark attendance for any date, calculate daily-rate salaries, edit basic salary/details, and manage payouts.
           </p>
+        </div>
+        <div>
+          <button class="btn btn-primary" id="btn-admin-add-emp" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+            <span>➕</span> Add New Employee
+          </button>
         </div>
       </div>
 
@@ -172,6 +179,11 @@ function bindEvents() {
     activeEmployee = null;
   });
 
+  // Add Employee button in header
+  document.getElementById('btn-admin-add-emp')?.addEventListener('click', () => {
+    openEmployeeModal(null);
+  });
+
   // Grid Date toolbar controls
   document.getElementById('admin-grid-prev-day')?.addEventListener('click', () => changeGridDay(-1));
   document.getElementById('admin-grid-next-day')?.addEventListener('click', () => changeGridDay(1));
@@ -235,6 +247,18 @@ function bindEvents() {
       return;
     }
 
+    // Edit employee button on card
+    const editCardBtn = e.target.closest('.btn-card-edit-emp');
+    if (editCardBtn) {
+      e.stopPropagation();
+      const id = editCardBtn.dataset.id;
+      const emp = currentEmployees.find(e => e.id === id);
+      if (emp) {
+        openEmployeeModal(emp);
+      }
+      return;
+    }
+
     // Click button to open full profile & pay salary
     const openBtn = e.target.closest('.btn-admin-open-profile');
     if (openBtn) {
@@ -260,6 +284,14 @@ function bindEvents() {
   // Profile actions
   const profileArea = document.getElementById('profile-content-area');
   profileArea?.addEventListener('click', async (e) => {
+    // Edit employee details from profile
+    if (e.target.classList.contains('btn-edit-emp') || e.target.closest('.btn-edit-emp')) {
+      if (activeEmployee) {
+        openEmployeeModal(activeEmployee);
+      }
+      return;
+    }
+
     // Delete salary
     if (e.target.classList.contains('btn-del-sal')) {
       const payId = e.target.dataset.id;
@@ -488,6 +520,16 @@ function loadData() {
   // Subscribe to all employees
   unsubEmployees = subscribeEmployees((employees) => {
     currentEmployees = employees;
+    if (activeEmployee) {
+      const updated = employees.find(e => e.id === activeEmployee.id);
+      if (updated) {
+        activeEmployee = updated;
+        const profView = document.getElementById('admin-emp-profile-view');
+        if (profView && profView.style.display !== 'none') {
+          openProfileView(updated);
+        }
+      }
+    }
     renderEmployeeGrid();
   });
 }
@@ -541,12 +583,17 @@ function renderEmployeeGrid() {
 
     return `
       <div class="employee-card" data-id="${emp.id}" style="cursor: pointer; display: flex; flex-direction: column;">
-        <div class="emp-card-header">
-          <div class="emp-avatar">${initials}</div>
-          <div class="emp-info">
-            <h3 style="margin: 0 0 0.25rem 0;">${emp.name}</h3>
-            <span class="badge-blue emp-role" style="padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${emp.role || 'Employee'}</span>
+        <div class="emp-card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div class="emp-avatar">${initials}</div>
+            <div class="emp-info">
+              <h3 style="margin: 0 0 0.25rem 0;">${emp.name}</h3>
+              <span class="badge-blue emp-role" style="padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${emp.role || 'Employee'}</span>
+            </div>
           </div>
+          <button class="btn btn-sm btn-ghost btn-card-edit-emp" data-id="${emp.id}" title="Edit Basic & Details" style="padding: 3px 8px; font-size: 0.75rem; border: 1px solid var(--clr-border); border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+            ✏️ Edit
+          </button>
         </div>
 
         <div class="emp-details" style="margin-top: 0.75rem;">
@@ -591,6 +638,140 @@ function renderEmployeeGrid() {
   }).join('');
 }
 
+function openEmployeeModal(emp = null) {
+  document.getElementById('admin-emp-modal-overlay')?.remove();
+
+  const isEdit = !!emp;
+  const basic = Number(emp?.basicSalary || 0);
+  const dailyRate = Math.round((basic / 26) * 100) / 100;
+
+  const modalHtml = `
+    <div class="modal-overlay" id="admin-emp-modal-overlay">
+      <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+          <div class="modal-title">${isEdit ? '✏️ Edit Employee Details' : '➕ Add New Employee'}</div>
+          <button type="button" class="modal-close" id="modal-emp-close">✕</button>
+        </div>
+        <form id="admin-emp-form">
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+            <div class="form-group">
+              <label class="form-label" for="modal-emp-name" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Full Name</label>
+              <input type="text" id="modal-emp-name" class="form-control" required value="${emp?.name || ''}" placeholder="e.g. Kasun Perera" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="modal-emp-role" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Role / Designation</label>
+              <input type="text" id="modal-emp-role" class="form-control" required value="${emp?.role || ''}" placeholder="e.g. Receptionist, Chef, Manager" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="modal-emp-phone" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Phone Number</label>
+              <input type="tel" id="modal-emp-phone" class="form-control" required value="${emp?.phone || ''}" placeholder="e.g. 0771234567" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="modal-emp-basic" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Basic Salary (LKR)</label>
+              <input type="number" id="modal-emp-basic" class="form-control" min="0" step="100" required value="${emp ? (emp.basicSalary ?? '') : ''}" placeholder="e.g. 60000" />
+            </div>
+
+            <!-- Live Daily Rate Preview -->
+            <div style="background:var(--clr-surface-2); border:1.5px solid var(--clr-border); border-radius:8px; padding:10px 14px; font-size:0.82rem">
+              <div style="display:flex; justify-content:space-between; align-items:center">
+                <span style="color:var(--clr-text-muted)">Daily Rate (Basic ÷ 26):</span>
+                <strong id="modal-emp-daily-rate" style="color:var(--clr-primary); font-size:0.95rem">
+                  Rs ${dailyRate.toFixed(2)} / day
+                </strong>
+              </div>
+              <div style="font-size:0.72rem; color:var(--clr-text-muted); margin-top:3px">
+                Attendance payout uses: Full Day = 1 × Daily Rate, Half Day = 0.5 × Daily Rate
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px; padding:16px 28px 24px">
+            <button type="button" class="btn btn-secondary" id="modal-emp-cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="modal-emp-submit" style="font-weight:600">
+              ${isEdit ? '💾 Save Changes' : '➕ Add Employee'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  const overlay = document.getElementById('admin-emp-modal-overlay');
+  const closeBtn = document.getElementById('modal-emp-close');
+  const cancelBtn = document.getElementById('modal-emp-cancel');
+  const form = document.getElementById('admin-emp-form');
+  const basicInput = document.getElementById('modal-emp-basic');
+  const dailyRateDisplay = document.getElementById('modal-emp-daily-rate');
+
+  function closeModal() {
+    overlay?.remove();
+  }
+
+  closeBtn?.addEventListener('click', closeModal);
+  cancelBtn?.addEventListener('click', closeModal);
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  basicInput?.addEventListener('input', () => {
+    const val = parseFloat(basicInput.value) || 0;
+    const rate = Math.round((val / 26) * 100) / 100;
+    if (dailyRateDisplay) {
+      dailyRateDisplay.textContent = `Rs ${rate.toFixed(2)} / day`;
+    }
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('modal-emp-name').value.trim();
+    const role = document.getElementById('modal-emp-role').value.trim();
+    const phone = document.getElementById('modal-emp-phone').value.trim();
+    const basicSalary = parseFloat(basicInput.value) || 0;
+
+    if (!name) {
+      showToast('Please enter employee name', 'warning');
+      return;
+    }
+    if (basicSalary < 0) {
+      showToast('Basic salary cannot be negative', 'warning');
+      return;
+    }
+
+    const submitBtn = document.getElementById('modal-emp-submit');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
+
+    try {
+      if (isEdit && emp?.id) {
+        await updateEmployee(emp.id, { name, role, phone, basicSalary });
+        showToast('Employee details updated successfully', 'success');
+        if (activeEmployee && activeEmployee.id === emp.id) {
+          activeEmployee = { ...activeEmployee, name, role, phone, basicSalary };
+          openProfileView(activeEmployee);
+        }
+      } else {
+        await addEmployee({ name, role, phone, basicSalary });
+        showToast('Employee added successfully', 'success');
+      }
+      closeModal();
+    } catch (err) {
+      console.error('Error saving employee:', err);
+      showToast('Failed to save employee: ' + (err.message || 'Unknown error'), 'error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = isEdit ? '💾 Save Changes' : '➕ Add Employee';
+      }
+    }
+  });
+}
+
 function openProfileView(emp) {
   activeEmployee = emp;
   document.getElementById('admin-emp-grid-view').style.display = 'none';
@@ -624,7 +805,10 @@ function openProfileView(emp) {
           </p>
         </div>
       </div>
-      <div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button class="btn btn-sm btn-primary btn-edit-emp" data-id="${emp.id}" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600;">
+          ✏️ Edit Details &amp; Basic
+        </button>
         <button class="btn btn-sm btn-ghost btn-del-emp" data-id="${emp.id}" style="color: #dc2626; border: 1px solid #dc2626;">Delete Employee</button>
       </div>
     </div>
@@ -1008,4 +1192,5 @@ export function destroyEmployeeDetailsPage() {
   if (unsubProfileAttendance) { unsubProfileAttendance(); unsubProfileAttendance = null; }
   if (unsubSalary) { unsubSalary(); unsubSalary = null; }
   activeEmployee = null;
+  document.getElementById('admin-emp-modal-overlay')?.remove();
 }

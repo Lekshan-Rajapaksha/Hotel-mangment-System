@@ -42,6 +42,18 @@ export async function deleteEmployee(employeeId) {
   }
 }
 
+export async function updateEmployee(employeeId, data) {
+  try {
+    await updateDoc(doc(db, EMPLOYEES_COL, employeeId), {
+      ...data,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    throw error;
+  }
+}
+
 // --- Attendance ---
 
 export async function addAttendance(employeeId, dateStr, status) {

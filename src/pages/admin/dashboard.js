@@ -1,7 +1,7 @@
 // src/pages/admin/dashboard.js — Admin panel shell
 import { renderSidebar, renderMobileHeader, bindMobileHeader, setActiveNav } from '../../components/sidebar.js';
 import { renderAdminCalendarPage } from './adminCalendarPage.js';
-import { renderAnalyticsPage } from './analyticsPage.js';
+import { renderAnalyticsPage, destroyAnalyticsPage } from './analyticsPage.js';
 import { renderBillsPage } from './billsPage.js';
 import { renderUtilityBillsPage, destroyUtilityBillsAdminPage } from './utilityBillsPage.js';
 import { renderNotificationsPage, destroyNotificationsPage } from './notificationsPage.js';
@@ -49,6 +49,7 @@ function loadPage(page) {
     if (typeof destroyUtilityBillsAdminPage === 'function') destroyUtilityBillsAdminPage();
   }
   if (currentPage !== 'employees') destroyEmployeeDetailsPage();
+  if (currentPage !== 'analytics') destroyAnalyticsPage();
 
   currentPage = page;
 
