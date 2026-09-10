@@ -43,11 +43,12 @@ function loadPage(page) {
   const container = document.getElementById('page-container');
   if (!container) return;
 
-  // Tear down notifications listeners when leaving
+  // Tear down listeners when leaving pages
   if (currentPage !== 'notifications') destroyNotificationsPage();
   if (currentPage !== 'utility') {
     if (typeof destroyUtilityBillsAdminPage === 'function') destroyUtilityBillsAdminPage();
   }
+  if (currentPage !== 'employees') destroyEmployeeDetailsPage();
 
   currentPage = page;
 
@@ -62,10 +63,8 @@ function loadPage(page) {
   } else if (page === 'utility') {
     renderUtilityBillsPage(container);
   } else if (page === 'notifications') {
-    if (currentPage === 'employees') destroyEmployeeDetailsPage();
     renderNotificationsPage(container);
   } else if (page === 'employees') {
-    if (currentPage === 'notifications') destroyNotificationsPage();
     renderEmployeeDetailsPage(container);
   }
 }

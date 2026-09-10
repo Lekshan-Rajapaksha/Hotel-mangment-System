@@ -48,6 +48,7 @@ function loadPage(page) {
 
   // Destroy old subscriptions if any
   if (unsubPage && typeof unsubPage === 'function') { unsubPage(); unsubPage = null; }
+  if (currentPage !== 'employees') destroyEmployeePage();
 
   currentPage = page;
 

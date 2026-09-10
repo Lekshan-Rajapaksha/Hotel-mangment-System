@@ -92,6 +92,39 @@ export function subscribeAttendance(employeeId, callback) {
   });
 }
 
+export async function deleteAttendance(employeeId, dateStr) {
+  try {
+    const q = query(
+      collection(db, ATTENDANCE_COL),
+      where('employeeId', '==', employeeId),
+      where('date', '==', dateStr)
+    );
+    const querySnapshot = await getDocs(q);
+    const deletePromises = querySnapshot.docs.map(docSnap => deleteDoc(doc(db, ATTENDANCE_COL, docSnap.id)));
+    await Promise.all(deletePromises);
+  } catch (error) {
+    console.error('Error deleting attendance:', error);
+    throw error;
+  }
+}
+
+// Subscribe to all attendance across all employees
+export function subscribeAllAttendance(callback) {
+  const q = query(
+    collection(db, ATTENDANCE_COL),
+    orderBy('date', 'desc')
+  );
+  return onSnapshot(q, (snapshot) => {
+    const attendance = [];
+    snapshot.forEach(doc => {
+      attendance.push({ id: doc.id, ...doc.data() });
+    });
+    callback(attendance);
+  }, error => {
+    console.error('Error listening to all attendance:', error);
+  });
+}
+
 // Subscribe to all attendance for the current month across all employees (useful for salary calculations)
 export function subscribeAttendanceByMonth(monthStr, callback) {
   // We'll just fetch all and filter client-side to keep it simple, or filter by a prefix
@@ -116,6 +149,33 @@ export function subscribeAttendanceByMonth(monthStr, callback) {
 
 
 // --- Salary Payments ---
+
+// Calculate salary breakdown based on Basic ÷ 26 per day (Half Day = 0.5 * dailyRate)
+export function calculateSalaryBreakdown({ basic, fullDays = 0, halfDays = 0, serviceCharge = 0, alreadyPaid = 0 }) {
+  const basicSalary = Number(basic) || 0;
+  const dailyRate = Math.round((basicSalary / 26) * 100) / 100;
+  const fDays = Number(fullDays) || 0;
+  const hDays = Number(halfDays) || 0;
+  const effectiveDays = fDays + (hDays * 0.5);
+  const earnedBasic = Math.round(effectiveDays * (basicSalary / 26));
+  const sc = Number(serviceCharge) || 0;
+  const totalOwed = Math.round(earnedBasic + sc);
+  const paid = Number(alreadyPaid) || 0;
+  const remaining = Math.max(0, totalOwed - paid);
+
+  return {
+    basicSalary,
+    dailyRate,
+    fullDays: fDays,
+    halfDays: hDays,
+    effectiveDays,
+    earnedBasic,
+    serviceCharge: sc,
+    totalOwed,
+    alreadyPaid: paid,
+    remaining
+  };
+}
 
 export async function paySalary(employeeId, paymentData) {
   try {

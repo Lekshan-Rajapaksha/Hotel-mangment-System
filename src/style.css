@@ -2019,7 +2019,8 @@ select.form-control {
   font-weight: 500;
 }
 
-.print-bill.a4-invoice {
+.print-bill.a4-invoice,
+#a4-invoice-view {
   width: 680px;
   max-width: 100%;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
@@ -3742,11 +3743,120 @@ details[open] .notif-expand-hint { transform: rotate(180deg); }
   color: #dc2626;
 }
 
+/* --- Admin Attendance Interactive Styles --- */
+.calendar-day.clickable {
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  position: relative;
+}
+
+.calendar-day.clickable:hover {
+  background: var(--clr-surface-alt, #f8fafc);
+  outline: 2px solid var(--clr-primary);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.calendar-day.selected-day {
+  outline: 2px solid var(--clr-primary) !important;
+  outline-offset: -2px;
+  background: rgba(37, 99, 235, 0.06) !important;
+  z-index: 2;
+}
+
+.calendar-day.today-day .calendar-date-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  background: var(--clr-primary);
+  color: #ffffff;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+}
+
+.badge-past-date {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.badge-today-date {
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--clr-primary);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-att-status-full {
+  background: rgba(22, 163, 74, 0.15) !important;
+  color: #16a34a !important;
+  border-color: #16a34a !important;
+  font-weight: 600 !important;
+}
+
+.btn-att-status-half {
+  background: rgba(202, 138, 4, 0.15) !important;
+  color: #ca8a04 !important;
+  border-color: #ca8a04 !important;
+  font-weight: 600 !important;
+}
+
+.btn-att-status-absent {
+  background: rgba(220, 38, 38, 0.15) !important;
+  color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  font-weight: 600 !important;
+}
+
+.cal-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.prof-att-mark-box {
+  background: var(--clr-surface-alt, #f8fafc);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
 /* --- Responsive Employee Section --- */
 .add-employee-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+
+.salary-page-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 850px) {
+  .salary-page-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
