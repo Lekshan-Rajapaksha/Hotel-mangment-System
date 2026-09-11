@@ -799,13 +799,13 @@ function openEmployeeEditModal(emp) {
 
   const modalHtml = `
     <div class="modal-overlay" id="reception-emp-edit-modal-overlay">
-      <div class="modal" style="max-width: 480px;">
+      <div class="modal" style="max-width: 480px; width: 100%; max-height: min(90vh, 90dvh); display: flex; flex-direction: column; overflow: hidden;">
         <div class="modal-header">
           <div class="modal-title">✏️ Edit Employee Details</div>
           <button type="button" class="modal-close" id="rec-edit-emp-close">✕</button>
         </div>
-        <form id="reception-emp-edit-form">
-          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+        <form id="reception-emp-edit-form" class="modal-form" style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; overflow-y: auto; flex: 1; min-height: 0;">
             <div class="form-group">
               <label class="form-label" for="rec-edit-emp-name" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Full Name</label>
               <input type="text" id="rec-edit-emp-name" class="form-control" required value="${escapeHtml(emp.name || '')}" placeholder="e.g. Kasun Perera" />
@@ -847,7 +847,7 @@ function openEmployeeEditModal(emp) {
             </div>
           </div>
 
-          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px; padding:16px 28px 24px">
+          <div class="modal-footer" style="flex-shrink:0;">
             <button type="button" class="btn btn-secondary" id="rec-edit-emp-cancel">Cancel</button>
             <button type="submit" class="btn btn-primary" id="rec-edit-emp-submit" style="font-weight:600">
               💾 Save Changes
