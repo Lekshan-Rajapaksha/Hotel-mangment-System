@@ -1,6 +1,7 @@
 import { 
   subscribeEmployees, 
   addEmployee, 
+  updateEmployee,
   addAttendance, 
   paySalary,
   subscribeAllAttendance,
@@ -9,6 +10,15 @@ import {
 } from '../../services/employeeService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
 import { showToast } from '../../utils/toast.js';
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 let unsubEmployees = null;
 let unsubAllAttendance = null;
@@ -54,8 +64,16 @@ export function renderEmployeePage(container) {
             <input type="text" id="emp-role" class="form-input" required placeholder="e.g. Cleaner, Manager" />
           </div>
           <div>
+            <label class="form-label">Employee ID / NIC Number</label>
+            <input type="text" id="emp-id-number" class="form-input" placeholder="e.g. 199512345678 or EMP-001" />
+          </div>
+          <div>
             <label class="form-label">Monthly Basic Salary (Rs)</label>
             <input type="number" id="emp-basic" class="form-input" required min="0" />
+          </div>
+          <div>
+            <label class="form-label">Address</label>
+            <input type="text" id="emp-address" class="form-input" placeholder="e.g. No. 12, Beach Road, Dikwella" />
           </div>
 
           <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end; gap:0.5rem; margin-top: 0.5rem;">
@@ -95,13 +113,15 @@ function bindEvents() {
 
   document.getElementById('add-employee-form').onsubmit = async (e) => {
     e.preventDefault();
-    const name = document.getElementById('emp-name').value;
-    const phone = document.getElementById('emp-phone').value;
-    const role = document.getElementById('emp-role').value;
+    const name = document.getElementById('emp-name').value.trim();
+    const phone = document.getElementById('emp-phone').value.trim();
+    const role = document.getElementById('emp-role').value.trim();
+    const idNumber = document.getElementById('emp-id-number').value.trim();
+    const address = document.getElementById('emp-address').value.trim();
     const basicSalary = Number(document.getElementById('emp-basic').value);
 
     try {
-      await addEmployee({ name, phone, role, basicSalary });
+      await addEmployee({ name, phone, role, basicSalary, idNumber, address });
       showToast('Employee added successfully', 'success');
       addFormContainer.style.display = 'none';
       e.target.reset();
@@ -112,6 +132,18 @@ function bindEvents() {
 
   // Event delegation on employee grid
   document.getElementById('employee-list-body').addEventListener('click', async (e) => {
+    // Edit employee button on card
+    const editCardBtn = e.target.closest('.btn-card-edit-emp');
+    if (editCardBtn) {
+      e.stopPropagation();
+      const id = editCardBtn.dataset.id;
+      const emp = currentEmployees.find(emp => emp.id === id);
+      if (emp) {
+        openEmployeeEditModal(emp);
+      }
+      return;
+    }
+
     // 1. Open Full-Page Pay Salary View (clickable anywhere on button or text/icon)
     const payBtn = e.target.closest('.btn-open-pay-page');
     if (payBtn) {
@@ -242,8 +274,14 @@ function bindEvents() {
     }
   });
 
-  // Reprint Bill button from History
+  // Reprint Bill button from History & Edit employee button in Pay Salary View
   payContentArea?.addEventListener('click', (e) => {
+    const editPayBtn = e.target.closest('.btn-edit-pay-emp');
+    if (editPayBtn && activePayEmployee) {
+      openEmployeeEditModal(activePayEmployee);
+      return;
+    }
+
     const printBtn = e.target.closest('.btn-reprint-sal-bill');
     if (printBtn && activePayEmployee) {
       const payId = printBtn.dataset.id;
@@ -285,16 +323,22 @@ function openPaySalaryPage(emp) {
         <div class="profile-avatar">${initials}</div>
         <div class="profile-title">
           <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <h2 style="margin: 0; font-size: 1.4rem;">${emp.name}</h2>
-            <span class="badge-blue" style="padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem;">${emp.role || 'Employee'}</span>
+            <h2 style="margin: 0; font-size: 1.4rem;">${escapeHtml(emp.name)}</h2>
+            <span class="badge-blue" style="padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem;">${escapeHtml(emp.role || 'Employee')}</span>
+            ${emp.idNumber ? `<span class="badge-gray" style="padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">🪪 ID: ${escapeHtml(emp.idNumber)}</span>` : ''}
           </div>
           <p style="margin: 0.35rem 0 0 0; color: var(--clr-text-muted); font-size: 0.9rem;">
-            📞 ${emp.phone} &nbsp;|&nbsp; 💰 Monthly Basic: <strong>Rs ${basic.toLocaleString()}</strong> &nbsp;|&nbsp;
+            📞 ${escapeHtml(emp.phone || 'N/A')} ${emp.address ? `&nbsp;|&nbsp; 🏠 ${escapeHtml(emp.address)}` : ''} &nbsp;|&nbsp; 💰 Monthly Basic: <strong>Rs ${basic.toLocaleString()}</strong> &nbsp;|&nbsp;
             <span style="color: var(--clr-primary); font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 0.2rem 0.5rem; border-radius: 4px;">
               Daily Rate (Basic ÷ 26): Rs ${dailyRate.toFixed(2)}/day
             </span>
           </p>
         </div>
+      </div>
+      <div>
+        <button type="button" class="btn btn-sm btn-primary btn-edit-pay-emp" data-id="${emp.id}" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600;">
+          ✏️ Edit Details
+        </button>
       </div>
     </div>
 
@@ -628,6 +672,12 @@ function loadData() {
 
   unsubEmployees = subscribeEmployees((employees) => {
     currentEmployees = employees;
+    if (activePayEmployee) {
+      const updated = employees.find(e => e.id === activePayEmployee.id);
+      if (updated) {
+        activePayEmployee = updated;
+      }
+    }
     renderEmployeeGrid();
   });
 }
@@ -673,16 +723,23 @@ function renderEmployeeGrid() {
 
     return `
       <div class="employee-card" data-id="${emp.id}" style="display: flex; flex-direction: column;">
-        <div class="emp-card-header">
-          <div class="emp-avatar">${initials}</div>
-          <div class="emp-info">
-            <h3 style="margin: 0 0 0.25rem 0;">${emp.name}</h3>
-            <span class="badge-blue emp-role" style="padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${emp.role || 'Employee'}</span>
+        <div class="emp-card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div class="emp-avatar">${initials}</div>
+            <div class="emp-info">
+              <h3 style="margin: 0 0 0.25rem 0;">${escapeHtml(emp.name)}</h3>
+              <span class="badge-blue emp-role" style="padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${escapeHtml(emp.role || 'Employee')}</span>
+            </div>
           </div>
+          <button class="btn btn-sm btn-ghost btn-card-edit-emp" data-id="${emp.id}" title="Edit Employee Details" style="padding: 3px 8px; font-size: 0.75rem; border: 1px solid var(--clr-border); border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+            ✏️ Edit
+          </button>
         </div>
 
         <div class="emp-details" style="margin-top: 0.75rem;">
-          <div>📞 ${emp.phone}</div>
+          ${emp.idNumber ? `<div>🪪 <span style="font-weight:600; color:var(--clr-text);">ID:</span> ${escapeHtml(emp.idNumber)}</div>` : ''}
+          <div>📞 ${escapeHtml(emp.phone || 'N/A')}</div>
+          ${emp.address ? `<div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(emp.address)}">🏠 ${escapeHtml(emp.address)}</div>` : ''}
           <div>💰 Rs ${basic.toLocaleString()} (Basic) • <small style="color:var(--clr-text-muted); font-weight: 600;">Rs ${dailyRate.toFixed(2)}/day</small></div>
         </div>
 
@@ -730,4 +787,139 @@ export function destroyEmployeePage() {
     unsubAllSalaries = null;
   }
   activePayEmployee = null;
+  document.getElementById('reception-emp-edit-modal-overlay')?.remove();
+}
+
+function openEmployeeEditModal(emp) {
+  if (!emp) return;
+  document.getElementById('reception-emp-edit-modal-overlay')?.remove();
+
+  const basic = Number(emp.basicSalary || 0);
+  const dailyRate = Math.round((basic / 26) * 100) / 100;
+
+  const modalHtml = `
+    <div class="modal-overlay" id="reception-emp-edit-modal-overlay">
+      <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+          <div class="modal-title">✏️ Edit Employee Details</div>
+          <button type="button" class="modal-close" id="rec-edit-emp-close">✕</button>
+        </div>
+        <form id="reception-emp-edit-form">
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+            <div class="form-group">
+              <label class="form-label" for="rec-edit-emp-name" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Full Name</label>
+              <input type="text" id="rec-edit-emp-name" class="form-control" required value="${escapeHtml(emp.name || '')}" placeholder="e.g. Kasun Perera" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="rec-edit-emp-role" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Role / Designation</label>
+              <input type="text" id="rec-edit-emp-role" class="form-control" required value="${escapeHtml(emp.role || '')}" placeholder="e.g. Cleaner, Manager" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="rec-edit-emp-phone" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Phone Number</label>
+              <input type="tel" id="rec-edit-emp-phone" class="form-control" required value="${escapeHtml(emp.phone || '')}" placeholder="e.g. 0771234567" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="rec-edit-emp-id-number" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Employee ID / NIC Number</label>
+              <input type="text" id="rec-edit-emp-id-number" class="form-control" value="${escapeHtml(emp.idNumber || emp.nic || '')}" placeholder="e.g. 199512345678 or EMP-001" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="rec-edit-emp-address" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Address</label>
+              <textarea id="rec-edit-emp-address" class="form-control" rows="2" placeholder="e.g. No. 12, Beach Road, Dikwella" style="resize:vertical;">${escapeHtml(emp.address || '')}</textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="rec-edit-emp-basic" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Basic Salary (LKR)</label>
+              <input type="number" id="rec-edit-emp-basic" class="form-control" min="0" step="100" required value="${basic}" placeholder="e.g. 60000" />
+            </div>
+
+            <!-- Live Daily Rate Preview -->
+            <div style="background:var(--clr-surface-2); border:1.5px solid var(--clr-border); border-radius:8px; padding:10px 14px; font-size:0.82rem">
+              <div style="display:flex; justify-content:space-between; align-items:center">
+                <span style="color:var(--clr-text-muted)">Daily Rate (Basic ÷ 26):</span>
+                <strong id="rec-edit-emp-daily-rate" style="color:var(--clr-primary); font-size:0.95rem">
+                  Rs ${dailyRate.toFixed(2)} / day
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px; padding:16px 28px 24px">
+            <button type="button" class="btn btn-secondary" id="rec-edit-emp-cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="rec-edit-emp-submit" style="font-weight:600">
+              💾 Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  const overlay = document.getElementById('reception-emp-edit-modal-overlay');
+  const closeBtn = document.getElementById('rec-edit-emp-close');
+  const cancelBtn = document.getElementById('rec-edit-emp-cancel');
+  const form = document.getElementById('reception-emp-edit-form');
+  const basicInput = document.getElementById('rec-edit-emp-basic');
+  const dailyRateDisplay = document.getElementById('rec-edit-emp-daily-rate');
+
+  function closeModal() {
+    overlay?.remove();
+  }
+
+  closeBtn?.addEventListener('click', closeModal);
+  cancelBtn?.addEventListener('click', closeModal);
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  basicInput?.addEventListener('input', () => {
+    const val = parseFloat(basicInput.value) || 0;
+    const rate = Math.round((val / 26) * 100) / 100;
+    if (dailyRateDisplay) {
+      dailyRateDisplay.textContent = `Rs ${rate.toFixed(2)} / day`;
+    }
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('rec-edit-emp-name').value.trim();
+    const role = document.getElementById('rec-edit-emp-role').value.trim();
+    const phone = document.getElementById('rec-edit-emp-phone').value.trim();
+    const idNumber = document.getElementById('rec-edit-emp-id-number').value.trim();
+    const address = document.getElementById('rec-edit-emp-address').value.trim();
+    const basicSalary = parseFloat(basicInput.value) || 0;
+
+    if (!name) {
+      showToast('Please enter employee name', 'warning');
+      return;
+    }
+
+    const submitBtn = document.getElementById('rec-edit-emp-submit');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
+
+    try {
+      await updateEmployee(emp.id, { name, role, phone, basicSalary, idNumber, address });
+      showToast('Employee details updated successfully', 'success');
+      if (activePayEmployee && activePayEmployee.id === emp.id) {
+        activePayEmployee = { ...activePayEmployee, name, role, phone, basicSalary, idNumber, address };
+        openPaySalaryPage(activePayEmployee);
+      }
+      closeModal();
+    } catch (err) {
+      console.error('Error updating employee:', err);
+      showToast('Failed to update employee: ' + (err.message || 'Unknown error'), 'error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '💾 Save Changes';
+      }
+    }
+  });
 }

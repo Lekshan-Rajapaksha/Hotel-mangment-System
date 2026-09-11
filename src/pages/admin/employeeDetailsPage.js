@@ -16,6 +16,15 @@ import {
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
 import { showToast } from '../../utils/toast.js';
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 let unsubEmployees = null;
 let unsubAllAttendance = null;
 let unsubAllSalaries = null;
@@ -597,7 +606,9 @@ function renderEmployeeGrid() {
         </div>
 
         <div class="emp-details" style="margin-top: 0.75rem;">
-          <div>📞 ${emp.phone}</div>
+          ${emp.idNumber ? `<div>🪪 <span style="font-weight:600; color:var(--clr-text);">ID:</span> ${escapeHtml(emp.idNumber)}</div>` : ''}
+          <div>📞 ${escapeHtml(emp.phone || 'N/A')}</div>
+          ${emp.address ? `<div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(emp.address)}">🏠 ${escapeHtml(emp.address)}</div>` : ''}
           <div>💰 Rs ${basic.toLocaleString()} (Basic) • <small style="color:var(--clr-text-muted); font-weight: 600;">Rs ${dailyRate.toFixed(2)}/day</small></div>
         </div>
 
@@ -670,6 +681,16 @@ function openEmployeeModal(emp = null) {
             </div>
 
             <div class="form-group">
+              <label class="form-label" for="modal-emp-id-number" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Employee ID / NIC Number</label>
+              <input type="text" id="modal-emp-id-number" class="form-control" value="${escapeHtml(emp?.idNumber || emp?.nic || '')}" placeholder="e.g. 199512345678 or EMP-001" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="modal-emp-address" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Address</label>
+              <textarea id="modal-emp-address" class="form-control" rows="2" placeholder="e.g. No. 12, Beach Road, Dikwella" style="resize:vertical;">${escapeHtml(emp?.address || '')}</textarea>
+            </div>
+
+            <div class="form-group">
               <label class="form-label" for="modal-emp-basic" style="font-weight:600; font-size:0.85rem; margin-bottom:4px; display:block">Basic Salary (LKR)</label>
               <input type="number" id="modal-emp-basic" class="form-control" min="0" step="100" required value="${emp ? (emp.basicSalary ?? '') : ''}" placeholder="e.g. 60000" />
             </div>
@@ -731,6 +752,8 @@ function openEmployeeModal(emp = null) {
     const name = document.getElementById('modal-emp-name').value.trim();
     const role = document.getElementById('modal-emp-role').value.trim();
     const phone = document.getElementById('modal-emp-phone').value.trim();
+    const idNumber = document.getElementById('modal-emp-id-number').value.trim();
+    const address = document.getElementById('modal-emp-address').value.trim();
     const basicSalary = parseFloat(basicInput.value) || 0;
 
     if (!name) {
@@ -750,14 +773,14 @@ function openEmployeeModal(emp = null) {
 
     try {
       if (isEdit && emp?.id) {
-        await updateEmployee(emp.id, { name, role, phone, basicSalary });
+        await updateEmployee(emp.id, { name, role, phone, basicSalary, idNumber, address });
         showToast('Employee details updated successfully', 'success');
         if (activeEmployee && activeEmployee.id === emp.id) {
-          activeEmployee = { ...activeEmployee, name, role, phone, basicSalary };
+          activeEmployee = { ...activeEmployee, name, role, phone, basicSalary, idNumber, address };
           openProfileView(activeEmployee);
         }
       } else {
-        await addEmployee({ name, role, phone, basicSalary });
+        await addEmployee({ name, role, phone, basicSalary, idNumber, address });
         showToast('Employee added successfully', 'success');
       }
       closeModal();
@@ -797,10 +820,13 @@ function openProfileView(emp) {
       <div style="display: flex; gap: 1.25rem; align-items: center;">
         <div class="profile-avatar">${initials}</div>
         <div class="profile-title">
-          <h2 style="margin: 0 0 0.25rem 0;">${emp.name}</h2>
-          <span class="badge-blue" style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.82rem; font-weight: 500; display: inline-block;">${emp.role || 'Employee'}</span>
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.25rem;">
+            <h2 style="margin: 0;">${escapeHtml(emp.name)}</h2>
+            <span class="badge-blue" style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.82rem; font-weight: 500;">${escapeHtml(emp.role || 'Employee')}</span>
+            ${emp.idNumber ? `<span class="badge-gray" style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.82rem; font-weight: 600;">🪪 ID: ${escapeHtml(emp.idNumber)}</span>` : ''}
+          </div>
           <p style="margin: 0.35rem 0 0 0; color: var(--clr-text-muted);">
-            📞 ${emp.phone} &nbsp;|&nbsp; 💰 Basic: Rs ${basic.toLocaleString()} &nbsp;|&nbsp; 
+            📞 ${escapeHtml(emp.phone || 'N/A')} ${emp.address ? `&nbsp;|&nbsp; 🏠 ${escapeHtml(emp.address)}` : ''} &nbsp;|&nbsp; 💰 Basic: Rs ${basic.toLocaleString()} &nbsp;|&nbsp; 
             <span style="color: var(--clr-primary); font-weight: 600;">Daily Rate (÷26): Rs ${dailyRate.toFixed(2)}</span>
           </p>
         </div>

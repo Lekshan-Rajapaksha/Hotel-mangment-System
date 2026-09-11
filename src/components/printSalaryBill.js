@@ -103,6 +103,11 @@ export function openPrintSalaryBill(payment, employee) {
                   <span>Employee:</span>
                   <span class="thermal-bold">${escapeHtml(emp.name || 'N/A')}</span>
                 </div>
+                ${(emp.idNumber || emp.nic) ? `
+                <div class="thermal-row">
+                  <span>ID / NIC:</span>
+                  <span>${escapeHtml(emp.idNumber || emp.nic)}</span>
+                </div>` : ''}
                 <div class="thermal-row">
                   <span>Job Role:</span>
                   <span>${escapeHtml(emp.role || 'Staff')}</span>
@@ -111,6 +116,11 @@ export function openPrintSalaryBill(payment, employee) {
                   <span>Phone:</span>
                   <span>${escapeHtml(emp.phone || 'N/A')}</span>
                 </div>
+                ${emp.address ? `
+                <div class="thermal-row">
+                  <span>Address:</span>
+                  <span>${escapeHtml(emp.address)}</span>
+                </div>` : ''}
                 <div class="thermal-row">
                   <span>Salary Period:</span>
                   <span class="thermal-bold">${periodStr}</span>
@@ -241,8 +251,10 @@ export function openPrintSalaryBill(payment, employee) {
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
                   <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #64748b; margin-bottom: 0.5rem;">Employee Details</div>
                   <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 0.25rem;">${escapeHtml(emp.name || 'N/A')}</div>
+                  ${(emp.idNumber || emp.nic) ? `<div style="font-size: 0.85rem; color: #475569;">ID / NIC: <strong>${escapeHtml(emp.idNumber || emp.nic)}</strong></div>` : ''}
                   <div style="font-size: 0.85rem; color: #475569;">Role: <strong>${escapeHtml(emp.role || 'Staff')}</strong></div>
                   <div style="font-size: 0.85rem; color: #475569;">Phone: ${escapeHtml(emp.phone || 'N/A')}</div>
+                  ${emp.address ? `<div style="font-size: 0.85rem; color: #475569;">Address: ${escapeHtml(emp.address)}</div>` : ''}
                 </div>
 
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
@@ -384,8 +396,10 @@ function bindSalaryPrintEvents(p, emp, voucherNo, dateFormatted, timeFormatted, 
       `Date & Time   : ${dateFormatted} ${timeFormatted}`,
       '----------------------------------------',
       `Employee      : ${emp.name || 'N/A'}`,
+      (emp.idNumber || emp.nic) ? `ID / NIC      : ${emp.idNumber || emp.nic}` : null,
       `Role          : ${emp.role || 'Staff'}`,
       `Phone         : ${emp.phone || 'N/A'}`,
+      emp.address ? `Address       : ${emp.address}` : null,
       `Period        : ${periodStr}`,
       `Payment Type  : ${paymentTypeLabel}`,
       '----------------------------------------',
