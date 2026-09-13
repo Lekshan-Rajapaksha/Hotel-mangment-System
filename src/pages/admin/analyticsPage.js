@@ -1269,15 +1269,15 @@ function renderRoomChart(bookings) {
 
   const roomCounts = Array(7).fill(0);
   bookings.forEach(b => {
-    if (b.roomNumber >= 1 && b.roomNumber <= 7) {
-      roomCounts[b.roomNumber - 1]++;
+    if (b.roomNumber >= 100 && b.roomNumber <= 106) {
+      roomCounts[b.roomNumber - 100]++;
     }
   });
 
   charts.rooms = new Chart(canvas, {
     type: 'doughnut',
     data: {
-      labels: [1, 2, 3, 4, 5, 6, 7].map(n => `Room ${n}`),
+      labels: [100, 101, 102, 103, 104, 105, 106].map(n => `Room ${n}`),
       datasets: [{
         data: roomCounts,
         backgroundColor: [

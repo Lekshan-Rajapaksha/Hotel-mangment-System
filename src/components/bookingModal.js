@@ -135,7 +135,7 @@ export async function openBookingModal(opts = {}) {
               <div class="form-group">
                 <label class="form-label" for="bk-room">Room Number *</label>
                 <select id="bk-room" class="form-control" required>
-                  ${[1,2,3,4,5,6,7].map(n => `<option value="${n}" ${(b.roomNumber||defaultRoom)==n?'selected':''}>${n}</option>`).join('')}
+                  ${[100, 101, 102, 103, 104, 105, 106].map(n => `<option value="${n}" ${(b.roomNumber||defaultRoom)==n?'selected':''}>${n}</option>`).join('')}
                 </select>
               </div>
               <div class="form-group">

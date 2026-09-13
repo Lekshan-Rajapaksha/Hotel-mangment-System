@@ -27,7 +27,7 @@ export function renderBillsPage(container) {
         </select>
         <select class="form-control" id="bills-filter-room" style="width:120px">
           <option value="">All Rooms</option>
-          ${[1,2,3,4,5,6,7].map(n => `<option value="${n}">Room ${n}</option>`).join('')}
+          ${[100, 101, 102, 103, 104, 105, 106].map(n => `<option value="${n}">Room ${n}</option>`).join('')}
         </select>
       </div>
     </div>

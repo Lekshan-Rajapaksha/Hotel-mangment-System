@@ -2,12 +2,12 @@
 import { subscribeAllBookings } from '../../services/bookingService.js';
 import { toDateStr, MONTHS } from '../../utils/dateHelpers.js';
 
-const ROOMS = [1, 2, 3, 4, 5, 6, 7];
+const ROOMS = [100, 101, 102, 103, 104, 105, 106];
 let unsubscribe = null;
 let currentView = 'monthly';
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth();
-let selectedYearRoom = 1;   // for yearly single-room view
+let selectedYearRoom = 100;   // for yearly single-room view
 let allBookings = [];
 
 export function renderRoomSummaryPage(container) {
@@ -16,7 +16,7 @@ export function renderRoomSummaryPage(container) {
   currentView = 'monthly';
   currentYear = new Date().getFullYear();
   currentMonth = new Date().getMonth();
-  selectedYearRoom = 1;
+  selectedYearRoom = 100;
 
   container.innerHTML = `
     <div class="page-header">

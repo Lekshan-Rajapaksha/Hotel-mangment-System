@@ -10,7 +10,7 @@ import { subscribeBookings } from '../services/bookingService.js';
 import { deleteBooking } from '../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../utils/toast.js';
 
-const ROOMS = [1,2,3,4,5,6,7];
+const ROOMS = [100, 101, 102, 103, 104, 105, 106];
 
 // Per-room color palettes for admin compact view
 const ROOM_COLORS = [

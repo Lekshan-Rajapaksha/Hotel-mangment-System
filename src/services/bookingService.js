@@ -109,3 +109,29 @@ export function subscribeAllBookings(callback, onError) {
     }
   );
 }
+
+// TEMPORARY MIGRATION SCRIPT
+setTimeout(async () => {
+  try {
+    const q = query(collection(db, COLLECTION));
+    const snap = await getDocs(q);
+    let migratedCount = 0;
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      let rNum = data.roomNumber;
+      if (typeof rNum === 'string') rNum = parseInt(rNum, 10);
+      if (rNum >= 1 && rNum <= 7) {
+        updateDoc(doc(db, COLLECTION, docSnap.id), {
+          roomNumber: rNum + 99
+        });
+        migratedCount++;
+      }
+    });
+    if (migratedCount > 0) {
+      alert(`Successfully migrated ${migratedCount} bookings to new room numbers. Please refresh the page.`);
+    }
+  } catch (err) {
+    console.error("Migration failed:", err);
+    alert("Migration failed: " + err.message);
+  }
+}, 3000);
