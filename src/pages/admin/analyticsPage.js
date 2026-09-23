@@ -2,6 +2,7 @@
 import { subscribeAllBookings } from '../../services/bookingService.js';
 import { subscribeUtilityBills } from '../../services/utilityBillService.js';
 import { subscribeAllSalaryPayments, subscribeEmployees } from '../../services/employeeService.js';
+import { subscribeCommissions } from '../../services/commissionService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
 import { formatCurrency, formatDate, nightCount, MONTHS } from '../../utils/dateHelpers.js';
 import Chart from 'chart.js/auto';
@@ -11,11 +12,13 @@ let unsubBookings = null;
 let unsubBills = null;
 let unsubSalaries = null;
 let unsubEmployees = null;
+let unsubCommissions = null;
 
 let allBookings = [];
 let allUtilityBills = [];
 let allSalaryPayments = [];
 let allEmployees = [];
+let allCommissions = [];
 
 let activeExpenseTab = 'payroll'; // 'payroll' | 'bills' | 'all'
 
@@ -338,6 +341,12 @@ function startSubscriptions() {
     allEmployees = employees || [];
     refreshData();
   });
+
+  // 5. Subscribe to Commissions (paid commissions are accounted as system expenses)
+  unsubCommissions = subscribeCommissions((commissions) => {
+    allCommissions = commissions || [];
+    refreshData();
+  });
 }
 
 function refreshData() {
@@ -385,10 +394,31 @@ function refreshData() {
     return y === year;
   });
 
+  // 4. Filter Paid Commissions (Considered as System Expenses)
+  const yearPaidCommissions = allCommissions.filter(c => {
+    if (c.status !== 'paid') return false;
+    let d = null;
+    if (c.paidAt) {
+      d = c.paidAt?.toDate ? c.paidAt.toDate() : new Date(c.paidAt);
+    }
+    if ((!d || isNaN(d.getTime())) && c.date) {
+      d = new Date(c.date);
+      if (isNaN(d.getTime()) && typeof c.date === 'string') {
+        const parts = c.date.split('-');
+        if (parts.length >= 2) d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2] || '1'));
+      }
+    }
+    if ((!d || isNaN(d.getTime())) && c.createdAt) {
+      d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt);
+    }
+    return d && !isNaN(d.getTime()) && d.getFullYear() === year;
+  });
+
   // Compute 12-month arrays
   const monthlyIncome = Array(12).fill(0);
   const monthlyBills = Array(12).fill(0);
   const monthlySalaries = Array(12).fill(0);
+  const monthlyCommissions = Array(12).fill(0);
 
   yearActiveBookings.forEach(b => {
     const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
@@ -425,33 +455,59 @@ function refreshData() {
     }
   });
 
-  const monthlyExpenses = monthlyBills.map((b, i) => b + monthlySalaries[i]);
+  yearPaidCommissions.forEach(c => {
+    let d = null;
+    if (c.paidAt) {
+      d = c.paidAt?.toDate ? c.paidAt.toDate() : new Date(c.paidAt);
+    }
+    if ((!d || isNaN(d.getTime())) && c.date) {
+      d = new Date(c.date);
+      if (isNaN(d.getTime()) && typeof c.date === 'string') {
+        const parts = c.date.split('-');
+        if (parts.length >= 2) d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2] || '1'));
+      }
+    }
+    if ((!d || isNaN(d.getTime())) && c.createdAt) {
+      d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt);
+    }
+    if (d && !isNaN(d.getTime())) {
+      const m = d.getMonth();
+      monthlyCommissions[m] += Number(c.amount || 0);
+    }
+  });
+
+  const monthlyExpenses = monthlyBills.map((b, i) => b + monthlySalaries[i] + monthlyCommissions[i]);
   const monthlyProfit = monthlyIncome.map((inc, i) => inc - monthlyExpenses[i]);
 
   // Selected period totals (Year or specific month)
   let periodIncome = 0;
   let periodBills = 0;
   let periodSalaries = 0;
+  let periodCommissions = 0;
   let periodExpenses = 0;
   let periodProfit = 0;
   let periodBookings = [];
   let periodBillsList = [];
   let periodSalariesList = [];
+  let periodCommissionsList = [];
 
   if (monthFilter === 'all') {
     periodIncome = monthlyIncome.reduce((s, v) => s + v, 0);
     periodBills = monthlyBills.reduce((s, v) => s + v, 0);
     periodSalaries = monthlySalaries.reduce((s, v) => s + v, 0);
-    periodExpenses = periodBills + periodSalaries;
+    periodCommissions = monthlyCommissions.reduce((s, v) => s + v, 0);
+    periodExpenses = periodBills + periodSalaries + periodCommissions;
     periodProfit = periodIncome - periodExpenses;
     periodBookings = yearActiveBookings;
     periodBillsList = yearBills;
     periodSalariesList = yearSalaries;
+    periodCommissionsList = yearPaidCommissions;
   } else {
     const m = parseInt(monthFilter);
     periodIncome = monthlyIncome[m];
     periodBills = monthlyBills[m];
     periodSalaries = monthlySalaries[m];
+    periodCommissions = monthlyCommissions[m];
     periodExpenses = monthlyExpenses[m];
     periodProfit = monthlyProfit[m];
 
@@ -483,6 +539,24 @@ function refreshData() {
       }
       return pm === m;
     });
+
+    periodCommissionsList = yearPaidCommissions.filter(c => {
+      let d = null;
+      if (c.paidAt) {
+        d = c.paidAt?.toDate ? c.paidAt.toDate() : new Date(c.paidAt);
+      }
+      if ((!d || isNaN(d.getTime())) && c.date) {
+        d = new Date(c.date);
+        if (isNaN(d.getTime()) && typeof c.date === 'string') {
+          const parts = c.date.split('-');
+          if (parts.length >= 2) d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2] || '1'));
+        }
+      }
+      if ((!d || isNaN(d.getTime())) && c.createdAt) {
+        d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt);
+      }
+      return d && !isNaN(d.getTime()) && d.getMonth() === m;
+    });
   }
 
   // Update DOM Cards
@@ -492,20 +566,24 @@ function refreshData() {
     profit: periodProfit,
     bills: periodBills,
     salaries: periodSalaries,
+    commissions: periodCommissions,
     bookingsCount: periodBookings.length,
     billsCount: periodBillsList.length,
     salariesCount: periodSalariesList.length,
+    commissionsCount: periodCommissionsList.length,
     bookings: periodBookings,
     year,
     monthFilter
   });
 
-  // Update Expense Summary Section (Who got paid how much, utility bills, combined)
+  // Update Expense Summary Section (Who got paid how much, utility bills, commissions, combined)
   renderExpenseSummarySection({
     salaries: periodSalariesList,
     bills: periodBillsList,
+    commissions: periodCommissionsList,
     totalSalaries: periodSalaries,
     totalBills: periodBills,
+    totalCommissions: periodCommissions,
     totalExpenses: periodExpenses,
     empMap,
     year,
@@ -513,11 +591,11 @@ function refreshData() {
   });
 
   // Update Cash Flow Summary Box
-  updateCashFlowSummary(periodBookings, periodBills, periodSalaries, periodProfit);
+  updateCashFlowSummary(periodBookings, periodBills, periodSalaries, periodCommissions, periodProfit);
 
   // Render Charts
   renderFinanceChart(monthlyIncome, monthlyExpenses, monthlyProfit);
-  renderExpenseBreakdownChart(periodSalaries, periodBillsList);
+  renderExpenseBreakdownChart(periodSalaries, periodBillsList, periodCommissions);
   renderOccupancyChart(yearActiveBookings, year);
   renderRoomChart(periodBookings);
   renderMealChart(periodBookings);
@@ -525,7 +603,7 @@ function refreshData() {
   renderWeeklyChart(periodBookings);
 
   // Render Statement & Bookings Tables
-  renderFinancialStatementTable(year, monthlyIncome, monthlyBills, monthlySalaries, monthlyExpenses, monthlyProfit, monthFilter);
+  renderFinancialStatementTable(year, monthlyIncome, monthlyBills, monthlySalaries, monthlyCommissions, monthlyExpenses, monthlyProfit, monthFilter);
   renderRecentSummary(periodBookings);
 }
 
@@ -628,8 +706,10 @@ function updateFinancialCards({
 function renderExpenseSummarySection({
   salaries,
   bills,
+  commissions = [],
   totalSalaries,
   totalBills,
+  totalCommissions = 0,
   totalExpenses,
   empMap,
   year,
@@ -641,7 +721,7 @@ function renderExpenseSummarySection({
   const countAllBadge = document.getElementById('count-all-badge');
   if (countPayrollBadge) countPayrollBadge.textContent = salaries.length;
   if (countBillsBadge) countBillsBadge.textContent = bills.length;
-  if (countAllBadge) countAllBadge.textContent = salaries.length + bills.length;
+  if (countAllBadge) countAllBadge.textContent = salaries.length + bills.length + commissions.length;
 
   // 1. Group salaries by employee ("Who got paid how much")
   const employeePayments = {};
@@ -963,7 +1043,20 @@ function renderExpenseSummarySection({
         date: b.date || b.createdAt,
         raw: b,
         isSalary: false
-      }))
+      })),
+      ...commissions.map(c => {
+        const isMultiple = (c.bookingNumbers && c.bookingNumbers.length > 1) || String(c.bookingNumber || '').includes(',');
+        return {
+          type: 'Commission',
+          categoryBadge: 'badge-primary',
+          title: `💼 Commission: Booking${isMultiple ? 's' : ''} #${c.bookingNumber || '—'}`,
+          desc: c.details || (c.guestName ? `Guest: ${c.guestName}` : 'Booking commission payout'),
+          amount: Number(c.amount || 0),
+          date: c.paidAt || c.date || c.createdAt,
+          raw: c,
+          isSalary: false
+        };
+      })
     ].sort((a, b) => {
       const dA = new Date(a.date || 0).getTime();
       const dB = new Date(b.date || 0).getTime();
@@ -1040,7 +1133,7 @@ function renderExpenseSummarySection({
   });
 }
 
-function updateCashFlowSummary(bookings, bills, salaries, profit) {
+function updateCashFlowSummary(bookings, bills, salaries, commissions = 0, profit) {
   const container = document.getElementById('cashflow-summary-content');
   if (!container) return;
 
@@ -1069,6 +1162,10 @@ function updateCashFlowSummary(bookings, bills, salaries, profit) {
       <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--clr-surface-2); border-radius:8px">
         <span style="color:var(--clr-text-muted)">👥 Payroll Outflow (Salaries):</span>
         <strong style="color:var(--clr-danger)">${formatCurrency(salaries)}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--clr-surface-2); border-radius:8px">
+        <span style="color:var(--clr-text-muted)">💼 Commissions Paid:</span>
+        <strong style="color:var(--clr-danger)">${formatCurrency(commissions)}</strong>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:${profit >= 0 ? 'var(--clr-success-dim)' : 'var(--clr-danger-dim)'}; border-radius:8px; border:1px solid ${profit >= 0 ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}">
         <span style="font-weight:700; color:var(--clr-text)">Net Financial Result:</span>
@@ -1160,7 +1257,7 @@ function renderFinanceChart(income, expenses, profit) {
   });
 }
 
-function renderExpenseBreakdownChart(salariesTotal, bills) {
+function renderExpenseBreakdownChart(salariesTotal, bills, commissionsTotal = 0) {
   const canvas = document.getElementById('chart-expense-breakdown');
   if (!canvas) return;
   charts.expenseBreakdown?.destroy();
@@ -1183,6 +1280,7 @@ function renderExpenseBreakdownChart(salariesTotal, bills) {
 
   const categories = [
     { label: 'Staff Salaries', amount: salariesTotal, color: CHART_COLORS.purple },
+    { label: 'Commissions', amount: commissionsTotal, color: '#38bdf8' },
     { label: 'Electricity (Light)', amount: typeMap.Light, color: CHART_COLORS.yellow },
     { label: 'Water', amount: typeMap.Water, color: CHART_COLORS.teal },
     { label: 'Internet', amount: typeMap.Internet, color: CHART_COLORS.primary },
@@ -1400,13 +1498,14 @@ function renderWeeklyChart(bookings) {
   });
 }
 
-function renderFinancialStatementTable(year, monthlyIncome, monthlyBills, monthlySalaries, monthlyExpenses, monthlyProfit, activeMonth) {
+function renderFinancialStatementTable(year, monthlyIncome, monthlyBills, monthlySalaries, monthlyCommissions = Array(12).fill(0), monthlyExpenses, monthlyProfit, activeMonth) {
   const container = document.getElementById('financial-statement-container');
   if (!container) return;
 
   const totalInc = monthlyIncome.reduce((s, v) => s + v, 0);
   const totalB = monthlyBills.reduce((s, v) => s + v, 0);
   const totalS = monthlySalaries.reduce((s, v) => s + v, 0);
+  const totalComm = monthlyCommissions.reduce((s, v) => s + v, 0);
   const totalExp = monthlyExpenses.reduce((s, v) => s + v, 0);
   const totalProf = monthlyProfit.reduce((s, v) => s + v, 0);
   const totalMargin = totalInc > 0 ? ((totalProf / totalInc) * 100).toFixed(1) : '0.0';
@@ -1416,6 +1515,7 @@ function renderFinancialStatementTable(year, monthlyIncome, monthlyBills, monthl
     const inc = monthlyIncome[i];
     const b = monthlyBills[i];
     const s = monthlySalaries[i];
+    const comm = monthlyCommissions[i] || 0;
     const exp = monthlyExpenses[i];
     const prof = monthlyProfit[i];
     const margin = inc > 0 ? ((prof / inc) * 100).toFixed(1) : (exp > 0 ? '-100.0' : '0.0');
@@ -1434,6 +1534,9 @@ function renderFinancialStatementTable(year, monthlyIncome, monthlyBills, monthl
         </td>
         <td data-label="Salaries" style="color:var(--clr-text-muted)">
           ${formatCurrency(s)}
+        </td>
+        <td data-label="Commissions" style="color:var(--clr-text-muted)">
+          ${formatCurrency(comm)}
         </td>
         <td data-label="Total Expenses" style="color:var(--clr-danger); font-weight:600">
           ${formatCurrency(exp)}
@@ -1456,6 +1559,7 @@ function renderFinancialStatementTable(year, monthlyIncome, monthlyBills, monthl
           <th>Booking Income</th>
           <th>Utility Bills</th>
           <th>Salaries Paid</th>
+          <th>Commissions</th>
           <th>Total Expenses</th>
           <th>Net Profit / Loss</th>
           <th>Margin (%)</th>
@@ -1470,6 +1574,7 @@ function renderFinancialStatementTable(year, monthlyIncome, monthlyBills, monthl
           <td style="color:var(--clr-success)">${formatCurrency(totalInc)}</td>
           <td>${formatCurrency(totalB)}</td>
           <td>${formatCurrency(totalS)}</td>
+          <td>${formatCurrency(totalComm)}</td>
           <td style="color:var(--clr-danger)">${formatCurrency(totalExp)}</td>
           <td style="color:${totalProf >= 0 ? 'var(--clr-success)' : 'var(--clr-danger)'}">
             ${totalProf < 0 ? '-' : ''}${formatCurrency(Math.abs(totalProf))}
@@ -1544,6 +1649,7 @@ export function destroyAnalyticsPage() {
   if (unsubBills) { unsubBills(); unsubBills = null; }
   if (unsubSalaries) { unsubSalaries(); unsubSalaries = null; }
   if (unsubEmployees) { unsubEmployees(); unsubEmployees = null; }
+  if (unsubCommissions) { unsubCommissions(); unsubCommissions = null; }
   Object.values(charts).forEach(c => c?.destroy());
   charts = {};
 }

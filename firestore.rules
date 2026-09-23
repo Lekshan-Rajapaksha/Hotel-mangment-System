@@ -14,8 +14,8 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.guestName is string
         && request.resource.data.roomNumber is number
-        && request.resource.data.roomNumber >= 1
-        && request.resource.data.roomNumber <= 7;
+        && request.resource.data.roomNumber >= 100
+        && request.resource.data.roomNumber <= 106;
       allow update: if request.auth != null;
       allow delete: if request.auth != null;
     }
@@ -63,6 +63,11 @@ service cloud.firestore {
 
     // Employee Salary Payments: authenticated users can read and write
     match /employeeSalaryPayments/{paymentId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Commissions: authenticated users can read and write
+    match /commissions/{commissionId} {
       allow read, write: if request.auth != null;
     }
   }

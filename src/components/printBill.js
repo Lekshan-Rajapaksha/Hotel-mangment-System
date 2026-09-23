@@ -16,7 +16,7 @@ export function openPrintBill(booking) {
   const totalPrice = Number(b.fullPrice || 0);
   const roomPriceTotal = b.pricePerDay ? (Number(b.pricePerDay) * nights) : Math.max(0, totalPrice - extraTotal - serviceChargeTotal);
   const pricePerNight = nights > 0 ? (roomPriceTotal / nights) : roomPriceTotal;
-  const billNo = `BCH-${String(b.id || Date.now()).slice(-6).toUpperCase()}`;
+  const billNo = b.bookingNumber ? `BCH-#${b.bookingNumber}` : `BCH-${String(b.id || Date.now()).slice(-6).toUpperCase()}`;
   const now = new Date();
   const today = now.toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit', hour12: true });

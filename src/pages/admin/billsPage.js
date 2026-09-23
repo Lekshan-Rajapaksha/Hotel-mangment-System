@@ -125,6 +125,7 @@ function applyFilters() {
     filtered = filtered.filter(b =>
       (b.guestName||'').toLowerCase().includes(search) ||
       (b.phone||'').includes(search) ||
+      (b.bookingNumber||'').includes(search) ||
       String(b.roomNumber).includes(search)
     );
   }
@@ -149,7 +150,7 @@ function renderTable(bookings) {
   bookings.forEach((b, i) => {
     const nights = nightCount(b.checkIn, b.checkOut);
     const rem = b.remaining ?? ((b.fullPrice||0) - (b.advancePaid||0));
-    const billNo = `BCH-${String(b.id || i).slice(-6).toUpperCase()}`;
+    const billNo = b.bookingNumber ? `#${b.bookingNumber}` : `BCH-${String(b.id || i).slice(-6).toUpperCase()}`;
     const isCancelled = b.status === 'cancelled';
 
     const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
@@ -166,7 +167,7 @@ function renderTable(bookings) {
 
     tableHtml += `
       <tr data-id="${b.id}" style="${isCancelled ? 'opacity:0.5' : ''}">
-        <td data-label="Bill #" style="font-family:monospace; font-size:0.8rem; color:var(--clr-text-muted)">${billNo}</td>
+        <td data-label="Bill #" style="font-family:monospace; font-size:0.85rem; font-weight:700; color:var(--clr-primary)">${billNo}</td>
         <td data-label="Guest">
           <div style="text-align:right">
             <div style="font-weight:600">${b.guestName}</div>

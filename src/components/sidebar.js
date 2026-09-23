@@ -20,6 +20,7 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
     { id: 'bills',        icon: '🧾', label: 'All Bills' },
     { id: 'utility',      icon: '💡', label: 'Utility' },
     { id: 'employees',    icon: '👥', label: 'Employees' },
+    { id: 'commission',   icon: '💼', label: 'Commission' },
     { id: 'notifications', icon: '🔔', label: 'Notifications', badge: true },
   ];
 
@@ -29,6 +30,7 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
     { id: 'pricing',  icon: '💵', label: 'Price Log' },
     { id: 'utilitybills', icon: '🧾', label: 'Bills' },
     { id: 'employees', icon: '👥', label: 'Employees' },
+    { id: 'commission', icon: '💼', label: 'Commission' },
   ];
 
   const links = isAdmin ? adminLinks : receptionLinks;

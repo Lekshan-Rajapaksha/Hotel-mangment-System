@@ -1,5 +1,5 @@
 // src/components/bookingModal.js — Full booking form modal
-import { createBooking, updateBooking } from '../services/bookingService.js';
+import { createBooking, updateBooking, getNextBookingNumber, formatBookingNumber } from '../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../utils/toast.js';
 import { toDateStr, formatCurrency } from '../utils/dateHelpers.js';
 import { openPrintBill } from './printBill.js';
@@ -20,6 +20,18 @@ export async function openBookingModal(opts = {}) {
   // Load latest prices from Price Log (Firestore) — fall back to defaults silently
   try { _prices = await getPrices(); } catch (_) { _prices = { ...DEFAULT_PRICES }; }
 
+  // Resolve booking number (either existing or next sequential number starting from 01)
+  let bookingNo = booking?.bookingNumber || '';
+  if (!booking && !bookingNo) {
+    try {
+      bookingNo = await getNextBookingNumber();
+    } catch (_) {
+      bookingNo = '01';
+    }
+  } else if (bookingNo) {
+    bookingNo = formatBookingNumber(bookingNo);
+  }
+
   // Remove existing modal
   document.querySelector('.modal-overlay')?.remove();
 
@@ -38,8 +50,8 @@ export async function openBookingModal(opts = {}) {
       <div class="modal modal-lg" id="booking-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-bk">
         <div class="modal-header">
           <div>
-            <h2 class="modal-title" id="modal-title-bk">
-              ${booking ? '✏️ Edit Booking' : '➕ New Booking'}
+            <h2 class="modal-title" id="modal-title-bk" style="display:flex; align-items:center; gap:8px">
+              ${booking ? `✏️ Edit Booking <span class="badge badge-accent">#${bookingNo}</span>` : `➕ New Booking <span class="badge badge-primary">#${bookingNo}</span>`}
             </h2>
             <div style="font-size:0.78rem;color:var(--clr-text-muted);margin-top:2px">
               Room ${b.roomNumber || defaultRoom} · ${booking ? 'Update guest details' : 'Fill in guest details'}
@@ -50,9 +62,13 @@ export async function openBookingModal(opts = {}) {
 
         <div class="modal-body" id="booking-modal-body">
           <form id="booking-form" novalidate>
+            <input type="hidden" id="bk-number" value="${bookingNo}" />
 
             <!-- === GUEST INFO === -->
-            <div class="section-title">👤 Guest Information</div>
+            <div class="section-title" style="display:flex; justify-content:space-between; align-items:center">
+              <span>👤 Guest Information</span>
+              <span class="badge badge-primary" style="font-size:0.8rem; font-weight:700">Booking #${bookingNo}</span>
+            </div>
             <div class="form-row" style="margin-bottom:14px">
               <div class="form-group">
                 <label class="form-label" for="bk-name">Full Name *</label>
@@ -757,7 +773,10 @@ async function saveBooking(andPrint = false) {
   const extraChargesTotal = extraCharges.reduce((sum, item) => sum + item.amount, 0);
   const serviceChargeTotal = extraCharges.reduce((sum, item) => sum + (item.serviceCharge || 0), 0);
 
+  const bookingNumber = document.getElementById('bk-number')?.value || currentBooking?.bookingNumber || '';
+
   const data = {
+    bookingNumber,
     guestName: name,
     phone,
     roomNumber: parseInt(document.getElementById('bk-room')?.value),

@@ -27,6 +27,7 @@ export function renderMyBookingsPage(container) {
           <table class="data-table" id="bookings-table">
             <thead>
               <tr>
+                <th>Booking #</th>
                 <th>Guest</th>
                 <th>Room</th>
                 <th>Check-In</th>
@@ -40,7 +41,7 @@ export function renderMyBookingsPage(container) {
               </tr>
             </thead>
             <tbody id="bookings-tbody">
-              <tr><td colspan="10" style="text-align:center; color:var(--clr-text-muted); padding:40px">Loading…</td></tr>
+              <tr><td colspan="11" style="text-align:center; color:var(--clr-text-muted); padding:40px">Loading…</td></tr>
             </tbody>
           </table>
         </div>
@@ -70,7 +71,7 @@ function renderTable(bookings) {
   if (!tbody) return;
 
   if (!bookings.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--clr-text-muted); padding:40px">No active bookings</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--clr-text-muted); padding:40px">No active bookings</td></tr>`;
     return;
   }
 
@@ -78,9 +79,13 @@ function renderTable(bookings) {
     const nights = nightCount(b.checkIn, b.checkOut);
     const rem = b.remaining ?? (b.fullPrice - (b.advancePaid || 0));
     const remColor = rem <= 0 ? 'var(--clr-success)' : 'var(--clr-accent)';
+    const searchMeta = `${b.bookingNumber||''} ${b.guestName||''} ${b.phone||''} room ${b.roomNumber||''}`.toLowerCase();
 
     return `
-      <tr data-id="${b.id}" data-guest="${(b.guestName||'').toLowerCase()}">
+      <tr data-id="${b.id}" data-search="${searchMeta}">
+        <td>
+          <span class="badge badge-primary" style="font-weight:700; font-size:0.82rem">#${b.bookingNumber || '—'}</span>
+        </td>
         <td>
           <div style="font-weight:600">${b.guestName}</div>
           <div style="font-size:0.75rem; color:var(--clr-text-muted)">${b.phone}</div>
@@ -125,9 +130,10 @@ function renderTable(bookings) {
 }
 
 function filterTable(query) {
-  const rows = document.querySelectorAll('#bookings-tbody tr[data-guest]');
+  const q = (query || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#bookings-tbody tr[data-search]');
   rows.forEach(row => {
-    const guest = row.dataset.guest || '';
-    row.style.display = guest.includes(query.toLowerCase()) ? '' : 'none';
+    const meta = row.dataset.search || '';
+    row.style.display = meta.includes(q) ? '' : 'none';
   });
 }

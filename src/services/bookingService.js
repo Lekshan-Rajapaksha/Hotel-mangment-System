@@ -8,11 +8,49 @@ import { db, auth } from '../firebase.js';
 
 const COLLECTION = 'bookings';
 
-/** Create a new booking */
+/** Format a numeric booking number to 2-digit padded string (01, 02, ... 10, ...) */
+export function formatBookingNumber(num) {
+  const n = parseInt(num, 10);
+  if (isNaN(n) || n <= 0) return '01';
+  return String(n).padStart(2, '0');
+}
+
+/** Get the next sequential booking number starting from 01 */
+export async function getNextBookingNumber() {
+  try {
+    const q = query(collection(db, COLLECTION));
+    const snap = await getDocs(q);
+    let maxNo = 0;
+    snap.forEach(d => {
+      const bData = d.data();
+      if (bData.bookingNumber !== undefined && bData.bookingNumber !== null) {
+        const val = parseInt(bData.bookingNumber, 10);
+        if (!isNaN(val) && val > maxNo) {
+          maxNo = val;
+        }
+      }
+    });
+    return formatBookingNumber(maxNo + 1);
+  } catch (err) {
+    console.error('Failed to get next booking number:', err);
+    return '01';
+  }
+}
+
+/** Create a new booking with automatic sequential bookingNumber starting from 01 */
 export async function createBooking(data) {
   const user = auth.currentUser;
+  
+  let bookingNo = data.bookingNumber;
+  if (!bookingNo) {
+    bookingNo = await getNextBookingNumber();
+  } else {
+    bookingNo = formatBookingNumber(bookingNo);
+  }
+
   const payload = {
     ...data,
+    bookingNumber: bookingNo,
     checkIn: Timestamp.fromDate(new Date(data.checkIn)),
     checkOut: Timestamp.fromDate(new Date(data.checkOut)),
     createdAt: serverTimestamp(),
@@ -25,6 +63,9 @@ export async function createBooking(data) {
 /** Update an existing booking */
 export async function updateBooking(id, data) {
   const payload = { ...data };
+  if (data.bookingNumber !== undefined) {
+    payload.bookingNumber = formatBookingNumber(data.bookingNumber);
+  }
   if (data.checkIn) payload.checkIn = Timestamp.fromDate(new Date(data.checkIn));
   if (data.checkOut) payload.checkOut = Timestamp.fromDate(new Date(data.checkOut));
   payload.updatedAt = serverTimestamp();
@@ -46,14 +87,12 @@ export async function deleteBooking(id) {
 
 /** Get all active bookings once */
 export async function getBookings() {
-  // No orderBy to avoid requiring a composite index — sort client-side
   const q = query(
     collection(db, COLLECTION),
     where('status', '==', 'active')
   );
   const snap = await getDocs(q);
   const bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  // Sort by createdAt descending on the client
   return bookings.sort((a, b) => {
     const aTs = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
     const bTs = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
@@ -63,7 +102,6 @@ export async function getBookings() {
 
 /** Real-time listener for all active bookings */
 export function subscribeBookings(callback, onError) {
-  // No orderBy — avoids requiring a Firestore composite index; sort client-side
   const q = query(
     collection(db, COLLECTION),
     where('status', '==', 'active')
@@ -72,7 +110,6 @@ export function subscribeBookings(callback, onError) {
     q,
     (snap) => {
       const bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Sort by createdAt descending on the client
       bookings.sort((a, b) => {
         const aTs = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
         const bTs = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
@@ -89,13 +126,11 @@ export function subscribeBookings(callback, onError) {
 
 /** Get all bookings (including cancelled) for admin */
 export function subscribeAllBookings(callback, onError) {
-  // No orderBy — avoids requiring a Firestore index; sort client-side
   const q = query(collection(db, COLLECTION));
   return onSnapshot(
     q,
     (snap) => {
       const bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Sort by createdAt descending on the client
       bookings.sort((a, b) => {
         const aTs = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
         const bTs = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
@@ -110,28 +145,49 @@ export function subscribeAllBookings(callback, onError) {
   );
 }
 
-// TEMPORARY MIGRATION SCRIPT
-setTimeout(async () => {
+/**
+ * Auto-assign sequential booking numbers (starting from 01)
+ * to existing bookings in the database that don't have one yet.
+ */
+export async function ensureBookingNumbers() {
   try {
-    const q = query(collection(db, COLLECTION));
-    const snap = await getDocs(q);
-    let migratedCount = 0;
-    snap.forEach((docSnap) => {
-      const data = docSnap.data();
-      let rNum = data.roomNumber;
-      if (typeof rNum === 'string') rNum = parseInt(rNum, 10);
-      if (rNum >= 1 && rNum <= 7) {
-        updateDoc(doc(db, COLLECTION, docSnap.id), {
-          roomNumber: rNum + 99
-        });
-        migratedCount++;
+    const snap = await getDocs(query(collection(db, COLLECTION)));
+    const allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Check if any booking is missing bookingNumber
+    const missing = allDocs.filter(d => !d.bookingNumber);
+    if (missing.length === 0) return;
+
+    // Find highest existing bookingNumber
+    let maxNo = 0;
+    allDocs.forEach(d => {
+      if (d.bookingNumber) {
+        const n = parseInt(d.bookingNumber, 10);
+        if (!isNaN(n) && n > maxNo) maxNo = n;
       }
     });
-    if (migratedCount > 0) {
-      alert(`Successfully migrated ${migratedCount} bookings to new room numbers. Please refresh the page.`);
+
+    // Sort missing chronologically by createdAt (or checkIn)
+    missing.sort((a, b) => {
+      const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.checkIn?.toDate ? a.checkIn.toDate().getTime() : 0);
+      const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.checkIn?.toDate ? b.checkIn.toDate().getTime() : 0);
+      return aTime - bTime;
+    });
+
+    // Assign sequential numbers
+    for (const item of missing) {
+      maxNo += 1;
+      const numStr = formatBookingNumber(maxNo);
+      await updateDoc(doc(db, COLLECTION, item.id), {
+        bookingNumber: numStr
+      });
     }
   } catch (err) {
-    console.error("Migration failed:", err);
-    alert("Migration failed: " + err.message);
+    console.warn('Booking number auto-assign check error:', err);
   }
-}, 3000);
+}
+
+// Run auto-assignment in background on startup
+setTimeout(() => {
+  ensureBookingNumbers();
+}, 2000);

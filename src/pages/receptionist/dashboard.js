@@ -5,6 +5,7 @@ import { renderMyBookingsPage } from './myBookingsPage.js';
 import { renderPricingPage, destroyPricingPage } from './pricingPage.js';
 import { renderUtilityBillsPage, destroyUtilityBillsPage } from './utilityBillsPage.js';
 import { renderEmployeePage, destroyEmployeePage } from './employeePage.js';
+import { renderCommissionPage, destroyCommissionPage } from './commissionPage.js';
 
 let currentPage = 'calendar';
 let userData = null;
@@ -49,6 +50,7 @@ function loadPage(page) {
   // Destroy old subscriptions if any
   if (unsubPage && typeof unsubPage === 'function') { unsubPage(); unsubPage = null; }
   if (currentPage !== 'employees') destroyEmployeePage();
+  if (currentPage !== 'commission') destroyCommissionPage();
 
   currentPage = page;
 
@@ -70,5 +72,10 @@ function loadPage(page) {
     destroyPricingPage();
     if (currentPage === 'utilitybills') destroyUtilityBillsPage();
     renderEmployeePage(container);
+  } else if (page === 'commission') {
+    destroyPricingPage();
+    if (currentPage === 'utilitybills') destroyUtilityBillsPage();
+    if (currentPage === 'employees') destroyEmployeePage();
+    renderCommissionPage(container);
   }
 }
