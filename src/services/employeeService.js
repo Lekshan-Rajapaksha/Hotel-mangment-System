@@ -1,4 +1,4 @@
-import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, serverTimestamp, getDocs, where } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, setDoc, serverTimestamp, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase.js';
 
 const EMPLOYEES_COL = 'employees';
@@ -59,7 +59,17 @@ export async function updateEmployee(employeeId, data) {
 export async function addAttendance(employeeId, dateStr, status) {
   // dateStr format: YYYY-MM-DD
   try {
-    // Check if an attendance record already exists for this date and employee
+    const docId = `${employeeId}_${dateStr}`;
+    const docRef = doc(db, ATTENDANCE_COL, docId);
+    
+    await setDoc(docRef, {
+      employeeId,
+      date: dateStr,
+      status, // 'Full Day', 'Half Day', 'Absent'
+      createdAt: serverTimestamp()
+    }, { merge: true });
+
+    // Clean up any old duplicate records that might exist with auto-generated IDs
     const q = query(
       collection(db, ATTENDANCE_COL),
       where('employeeId', '==', employeeId),
@@ -67,18 +77,15 @@ export async function addAttendance(employeeId, dateStr, status) {
     );
     const querySnapshot = await getDocs(q);
     
-    if (!querySnapshot.empty) {
-      // Update existing
-      const existingDocId = querySnapshot.docs[0].id;
-      await updateDoc(doc(db, ATTENDANCE_COL, existingDocId), { status });
-    } else {
-      // Add new
-      await addDoc(collection(db, ATTENDANCE_COL), {
-        employeeId,
-        date: dateStr,
-        status, // 'Full Day', 'Half Day', 'Absent'
-        createdAt: serverTimestamp()
-      });
+    const deletePromises = [];
+    querySnapshot.forEach((docSnap) => {
+      if (docSnap.id !== docId) {
+        deletePromises.push(deleteDoc(doc(db, ATTENDANCE_COL, docSnap.id)));
+      }
+    });
+    
+    if (deletePromises.length > 0) {
+      await Promise.all(deletePromises);
     }
   } catch (error) {
     console.error('Error adding attendance:', error);
@@ -92,10 +99,15 @@ export function subscribeAttendance(employeeId, callback) {
     where('employeeId', '==', employeeId)
   );
   return onSnapshot(q, (snapshot) => {
-    const attendance = [];
+    const attendanceMap = new Map();
     snapshot.forEach(doc => {
-      attendance.push({ id: doc.id, ...doc.data() });
+      const data = doc.data();
+      const key = data.date;
+      if (!attendanceMap.has(key) || (data.createdAt && attendanceMap.get(key).createdAt && data.createdAt > attendanceMap.get(key).createdAt)) {
+         attendanceMap.set(key, { id: doc.id, ...data });
+      }
     });
+    const attendance = Array.from(attendanceMap.values());
     // Sort descending by date
     attendance.sort((a, b) => b.date.localeCompare(a.date));
     callback(attendance);
@@ -127,11 +139,15 @@ export function subscribeAllAttendance(callback) {
     orderBy('date', 'desc')
   );
   return onSnapshot(q, (snapshot) => {
-    const attendance = [];
+    const attendanceMap = new Map();
     snapshot.forEach(doc => {
-      attendance.push({ id: doc.id, ...doc.data() });
+      const data = doc.data();
+      const key = `${data.employeeId}_${data.date}`;
+      if (!attendanceMap.has(key) || (data.createdAt && attendanceMap.get(key).createdAt && data.createdAt > attendanceMap.get(key).createdAt)) {
+         attendanceMap.set(key, { id: doc.id, ...data });
+      }
     });
-    callback(attendance);
+    callback(Array.from(attendanceMap.values()));
   }, error => {
     console.error('Error listening to all attendance:', error);
   });
@@ -146,14 +162,17 @@ export function subscribeAttendanceByMonth(monthStr, callback) {
     orderBy('date', 'desc')
   );
   return onSnapshot(q, (snapshot) => {
-    const attendance = [];
+    const attendanceMap = new Map();
     snapshot.forEach(doc => {
       const data = doc.data();
       if (data.date.startsWith(monthStr)) {
-        attendance.push({ id: doc.id, ...data });
+        const key = `${data.employeeId}_${data.date}`;
+        if (!attendanceMap.has(key) || (data.createdAt && attendanceMap.get(key).createdAt && data.createdAt > attendanceMap.get(key).createdAt)) {
+           attendanceMap.set(key, { id: doc.id, ...data });
+        }
       }
     });
-    callback(attendance);
+    callback(Array.from(attendanceMap.values()));
   }, error => {
     console.error('Error listening to monthly attendance:', error);
   });
