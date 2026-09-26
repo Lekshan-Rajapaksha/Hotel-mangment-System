@@ -188,7 +188,7 @@ export async function openBookingModal(opts = {}) {
               <div class="form-group">
                 <label class="form-label" for="bk-persons">Number of Guests</label>
                 <select id="bk-persons" class="form-control">
-                  ${[1,2,3,4,5,6].map(n => `<option value="${n}" ${((b.additionalGuests?.length||0)+1)===n?'selected':''}>${n} Guest${n>1?'s':''}</option>`).join('')}
+                  ${[1,2,3,4,5,6].map(n => `<option value="${n}" ${(b.guestCount || ((b.additionalGuests?.length||0)+1))===n?'selected':''}>${n} Guest${n>1?'s':''}</option>`).join('')}
                 </select>
               </div>
               <div class="form-group" style="display:flex; align-items:flex-end">
@@ -499,14 +499,17 @@ function syncPersonsFromGuests() {
   const total = guestCount + 1; // main guest + additional
   const sel = document.getElementById('bk-persons');
   if (sel) {
+    const currentVal = parseInt(sel.value) || 0;
     // Expand options if needed (up to 10)
-    const max = Math.max(total, 6);
+    const max = Math.max(total, 6, currentVal);
     if (sel.options.length < max) {
       for (let i = sel.options.length + 1; i <= max; i++) {
         sel.add(new Option(`${i} Guests`, i));
       }
     }
-    sel.value = String(total);
+    if (currentVal < total) {
+      sel.value = String(total);
+    }
   }
 }
 
@@ -804,6 +807,7 @@ async function saveBooking(andPrint = false) {
       : '',
     notes: document.getElementById('bk-notes')?.value?.trim() || '',
     additionalGuests,
+    guestCount: parseInt(document.getElementById('bk-persons')?.value) || 1,
     extraCharges,
     extraChargesTotal,
     serviceChargeTotal,
