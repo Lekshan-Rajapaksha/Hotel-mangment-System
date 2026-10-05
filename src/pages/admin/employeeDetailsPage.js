@@ -477,6 +477,8 @@ function bindEvents() {
         alreadyPaid
       });
 
+      const note = (form.querySelector('.prof-sal-note')?.value || '').trim();
+
       const isMidMonth = alreadyPaid > 0 || (payNow < breakdown.totalOwed && breakdown.totalOwed > 0);
       const paymentType = isMidMonth ? 'Mid-Month / Advance Payment' : 'Salary Settlement';
       const remainingAfter = Math.max(0, breakdown.totalOwed - (alreadyPaid + payNow));
@@ -496,6 +498,7 @@ function bindEvents() {
         totalPaid: payNow,
         remainingBalance: remainingAfter,
         paymentType,
+        ...(note ? { note } : {}),
         date: new Date().toISOString()
       };
 
@@ -914,6 +917,11 @@ function openProfileView(emp) {
                 <label style="font-size: 0.72rem; color: var(--clr-primary); font-weight: 700; display: block; margin-bottom: 0.2rem;">Amount to Pay (Rs)</label>
                 <input type="number" class="form-input prof-sal-pay-now" required min="1" value="0" style="padding: 0.35rem; width: 100%; border: 1px solid var(--clr-primary); font-weight: bold;">
               </div>
+            </div>
+
+            <div style="margin-bottom: 0.6rem;">
+              <label style="font-size: 0.72rem; color: var(--clr-text-muted); display: block; margin-bottom: 0.2rem;">📝 Note (Optional)</label>
+              <textarea class="form-input prof-sal-note" rows="2" placeholder="e.g. Advance for festival, Bonus included…" style="padding: 0.35rem; width: 100%; resize: vertical; font-size: 0.82rem;"></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary w-full" style="padding: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-weight: 600;">

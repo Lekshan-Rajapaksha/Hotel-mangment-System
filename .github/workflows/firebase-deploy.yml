@@ -8,6 +8,12 @@ on:
     branches:
       - main          # Create a preview channel for every PR
 
+# To allow the Firebase action to create check runs and comment on PRs
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+
 jobs:
   # ────────────────────────────────────────────────
   # Job 1: Build & Deploy to LIVE on push to main
