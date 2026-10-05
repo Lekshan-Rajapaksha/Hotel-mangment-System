@@ -35,6 +35,7 @@ export function openPrintSalaryBill(payment, employee) {
 
   const isMidMonth = previouslyPaid > 0 || (paidNow < totalGross && totalGross > 0);
   const paymentTypeLabel = p.paymentType || (isMidMonth ? 'Mid-Month / Advance Payment' : 'Salary Settlement');
+  const noteText = (p.note || '').trim();
 
   // Remove existing overlay if any
   document.querySelector('#print-bill-overlay')?.remove();
@@ -209,6 +210,14 @@ export function openPrintSalaryBill(payment, employee) {
 
               <div class="thermal-divider-dashed"></div>
 
+              <!-- Note (if present) -->
+              ${noteText ? `
+              <div style="font-size: 0.76rem; text-align: left; padding: 0.4rem 0;">
+                <strong>Note:</strong> ${escapeHtml(noteText)}
+              </div>
+              <div class="thermal-divider-dashed"></div>
+              ` : ''}
+
               <!-- Signatures -->
               <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; font-size: 0.75rem; text-align: center;">
                 <div style="width: 45%; border-top: 1px solid #000; padding-top: 0.25rem;">
@@ -325,6 +334,14 @@ export function openPrintSalaryBill(payment, employee) {
                 </div>
               </div>
 
+              <!-- Note (if present) -->
+              ${noteText ? `
+              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.6rem 0.85rem; margin-bottom: 1.5rem; font-size: 0.88rem; color: #78350f;">
+                <strong style="display: block; margin-bottom: 0.2rem;">📝 Note:</strong>
+                ${escapeHtml(noteText)}
+              </div>
+              ` : ''}
+
               <!-- Signatures -->
               <div style="display: flex; justify-content: space-between; margin-top: 3.5rem; padding: 0 2rem;">
                 <div style="width: 200px; text-align: center; border-top: 1px solid #94a3b8; padding-top: 0.5rem; font-size: 0.85rem; color: #475569;">
@@ -414,6 +431,7 @@ function bindSalaryPrintEvents(p, emp, voucherNo, dateFormatted, timeFormatted, 
       `AMOUNT PAID   : Rs ${paidNow.toLocaleString()}`,
       `REMAINING DUE : Rs ${remaining.toLocaleString()}`,
       `Status        : ${remaining <= 0 ? 'CLEARED / FULLY PAID' : 'BALANCE REMAINING'}`,
+      noteText ? `Note          : ${noteText}` : null,
       '========================================',
       'Thank you for your hard work!',
       'Blue Cove Hiriketiya Management'
