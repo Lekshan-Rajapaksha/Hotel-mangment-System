@@ -9,6 +9,7 @@ import {
   calculateSalaryBreakdown
 } from '../../services/employeeService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
+import { openPrintEmployeeReport } from '../../components/printEmployeeReport.js';
 import { showToast } from '../../utils/toast.js';
 
 function escapeHtml(str) {
@@ -282,6 +283,12 @@ function bindEvents() {
       return;
     }
 
+    const fullReportBtn = e.target.closest('.btn-print-full-report');
+    if (fullReportBtn && activePayEmployee) {
+      openPrintEmployeeReport(activePayEmployee, allAttendanceList, allSalaries);
+      return;
+    }
+
     const printBtn = e.target.closest('.btn-reprint-sal-bill');
     if (printBtn && activePayEmployee) {
       const payId = printBtn.dataset.id;
@@ -335,7 +342,10 @@ function openPaySalaryPage(emp) {
           </p>
         </div>
       </div>
-      <div>
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <button type="button" class="btn btn-sm btn-ghost btn-print-full-report" data-id="${emp.id}" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600; border: 1px solid var(--clr-border);">
+          🖨️ Full Report
+        </button>
         <button type="button" class="btn btn-sm btn-primary btn-edit-pay-emp" data-id="${emp.id}" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600;">
           ✏️ Edit Details
         </button>
