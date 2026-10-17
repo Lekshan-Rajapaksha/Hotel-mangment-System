@@ -1318,7 +1318,7 @@ select.form-control {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 2px 5px;
+  padding: 2px 36px 2px 5px;
   gap: 1px;
 }
 
@@ -1332,6 +1332,37 @@ select.form-control {
   display: flex;
   align-items: center;
   gap: 3px;
+}
+
+.cal-name-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-guest-badge {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .cal-occasion-badge {
@@ -1443,7 +1474,7 @@ select.form-control {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 2px 5px;
+  padding: 2px 34px 2px 5px;
   gap: 1px;
   overflow: hidden;
 }
@@ -1531,6 +1562,7 @@ select.form-control {
   }
 
   .admin-cell-detail   { display: none; }       /* hide name + sub on mobile */
+  .admin-cal .cal-guest-badge { display: none; } /* hide guest badge on mobile */
   .admin-occasion-mobile { display: block; }    /* show emoji badge instead */
 }
 
@@ -2646,8 +2678,9 @@ select.form-control {
 
   /* Calendar cells — tighter & readable (receptionist only) */
   .cal-wrapper:not(.admin-cal) .cal-cell { height: 48px; }
-  .cal-cell-info { inset: 2px; padding: 2px 3px; gap: 0; }
+  .cal-cell-info { inset: 2px; padding: 2px 30px 2px 3px; gap: 0; }
   .cal-cell-name { font-size: 0.64rem; }
+  .cal-guest-badge { top: 3px; right: 3px; font-size: 0.54rem; padding: 1px 4px; }
   .cal-cell-sub  { font-size: 0.58rem; }
   .cal-wrapper:not(.admin-cal) .cal-header-cell { padding: 6px 4px; font-size: 0.65rem; }
   .cal-wrapper:not(.admin-cal) .cal-room-label  { padding: 4px 6px; font-size: 0.78rem; min-width: 32px; width: 32px; justify-content: center; }
@@ -2765,7 +2798,9 @@ select.form-control {
 
   /* Calendar cells even tighter (receptionist only) */
   .cal-wrapper:not(.admin-cal) .cal-cell { height: 40px; }
+  .cal-cell-info { inset: 2px; padding: 2px 26px 2px 3px; }
   .cal-cell-name { font-size: 0.6rem; }
+  .cal-guest-badge { top: 2px; right: 2px; font-size: 0.50rem; padding: 1px 3px; }
   .cal-cell-sub  { display: none; }
   .cal-today-badge { display: none; }
   .cal-wrapper:not(.admin-cal) .cal-grid { min-width: 320px; }
