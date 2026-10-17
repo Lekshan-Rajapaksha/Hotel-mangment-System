@@ -313,24 +313,32 @@ function renderGrid() {
           : '';
         const todayStyle = isToday && !isBooked ? 'background:#eef2ff;' : '';
         const cellClass = `cal-cell admin-cell ${isBooked ? 'booked' : ''} ${isToday ? 'today-col' : ''}`;
+        const guestCount = isBooked && booking ? getBookingGuestCount(booking) : 1;
+        const guestText = `${guestCount} Guest${guestCount > 1 ? 's' : ''}`;
+
         if (isBooked && booking) {
           const src = booking.source || '';
           const acBed = `${booking.acType||'N/A'} · ${booking.bedType||'N/A'}`;
           cellContent = `
             <div class="admin-cell-detail">
-              <div class="admin-cell-name">${booking.guestName}${occasionBadge}</div>
-              <div class="admin-cell-sub">${src ? src + ' · ' : ''}${acBed}</div>
+              <div class="admin-cell-name">
+                <span class="cal-name-text">${escapeHtml(booking.guestName)}</span>
+                ${occasionBadge}
+              </div>
+              <div class="admin-cell-sub">${src ? escapeHtml(src) + ' · ' : ''}${escapeHtml(acBed)}</div>
             </div>
+            <span class="cal-guest-badge" title="${guestText}">👥 ${guestCount}</span>
             ${occasionBadge ? `<span class="admin-occasion admin-occasion-mobile">${occasionBadge}</span>` : ''}
           `;
         }
+        const adminGuestTooltip = isBooked ? ` (${guestCount} guest${guestCount>1?'s':''})` : '';
         html += `
           <div
             class="${cellClass}"
             data-room="${room}"
             data-date="${dateStr}"
             data-booking-id="${booking?.id || ''}"
-            title="${isBooked ? `${booking.guestName} · Room ${room}` : `Room ${room} · ${dateStr}`}"
+            title="${isBooked ? `${escapeHtml(booking.guestName)}${adminGuestTooltip} · Room ${room}` : `Room ${room} · ${dateStr}`}"
             style="${bookedStyle}${todayStyle}"
           >
             ${cellContent}
@@ -339,27 +347,35 @@ function renderGrid() {
       } else {
         // Standard receptionist view
         const cellClass = `cal-cell ${isBooked ? 'booked' : ''} ${isToday ? 'today-col' : ''}`;
+        const guestCount = isBooked && booking ? getBookingGuestCount(booking) : 1;
+        const guestText = `${guestCount} Guest${guestCount > 1 ? 's' : ''}`;
+
         if (isBooked && booking) {
           const acBed = `${booking.acType||'N/A'} · ${booking.bedType||'N/A'}`;
-          const meals = booking.meals && booking.meals !== 'None' ? ` · 🍽️ ${booking.meals}` : '';
+          const meals = booking.meals && booking.meals !== 'None' ? ` · 🍽️ ${escapeHtml(booking.meals)}` : '';
           const src = booking.source || '';
           cellContent = `
             <div class="cal-cell-info">
-              <div class="cal-cell-name">${booking.guestName}${occasionBadge}</div>
-              <div class="cal-cell-sub">${src ? src + ' · ' : ''}${acBed}${meals}</div>
+              <div class="cal-cell-name">
+                <span class="cal-name-text">${escapeHtml(booking.guestName)}</span>
+                ${occasionBadge}
+              </div>
+              <div class="cal-cell-sub">${src ? escapeHtml(src) + ' · ' : ''}${escapeHtml(acBed)}${meals}</div>
             </div>
+            <span class="cal-guest-badge" title="${guestText}">👥 ${guestCount}</span>
           `;
         }
         if (isToday && !isBooked) {
           cellContent += `<span class="cal-today-badge">Today</span>`;
         }
+        const recGuestTooltip = isBooked ? ` (${guestCount} guest${guestCount>1?'s':''})` : '';
         html += `
           <div
             class="${cellClass}"
             data-room="${room}"
             data-date="${dateStr}"
             data-booking-id="${booking?.id || ''}"
-            title="${isBooked ? `${booking.guestName} · Room ${room}` : `Room ${room} · ${dateStr}`}"
+            title="${isBooked ? `${escapeHtml(booking.guestName)}${recGuestTooltip} · Room ${room}` : `Room ${room} · ${dateStr}`}"
           >
             ${cellContent}
           </div>
@@ -418,6 +434,7 @@ function showAdminBookingModal(booking) {
     (new Date(booking.checkOut?.toDate ? booking.checkOut.toDate() : booking.checkOut) -
      new Date(booking.checkIn?.toDate ? booking.checkIn.toDate() : booking.checkIn)) / 86400000
   );
+  const guestCount = getBookingGuestCount(booking);
 
   const html = `
     <div class="modal-overlay" id="admin-booking-view">
@@ -428,33 +445,34 @@ function showAdminBookingModal(booking) {
         </div>
         <div class="modal-body">
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px">
-            ${infoRow('Guest', booking.guestName)}
-            ${infoRow('Phone', booking.phone)}
+            ${infoRow('Guest', escapeHtml(booking.guestName))}
+            ${infoRow('Guests', `👥 ${guestCount} Guest${guestCount > 1 ? 's' : ''}`)}
+            ${infoRow('Phone', escapeHtml(booking.phone))}
             ${infoRow('Room', `Room ${booking.roomNumber}`)}
             ${infoRow('Check-In', formatDate(booking.checkIn, true))}
             ${infoRow('Check-Out', formatDate(booking.checkOut, true))}
             ${infoRow('Nights', `${nights} night${nights>1?'s':''}`)}
-            ${infoRow('Bed Type', booking.bedType)}
-            ${infoRow('AC', booking.acType)}
-            ${infoRow('Meals', booking.meals)}
-            ${infoRow('Source', booking.source || 'Direct')}
+            ${infoRow('Bed Type', escapeHtml(booking.bedType))}
+            ${infoRow('AC', escapeHtml(booking.acType))}
+            ${infoRow('Meals', escapeHtml(booking.meals))}
+            ${infoRow('Source', escapeHtml(booking.source || 'Direct'))}
             ${infoRow('Full Price', `LKR ${Number(booking.fullPrice||0).toLocaleString()}`)}
             ${infoRow('Advance', `LKR ${Number(booking.advancePaid||0).toLocaleString()}`)}
             ${infoRow('Remaining', `LKR ${Number(booking.remaining||0).toLocaleString()}`)}
             ${booking.specialBirthday ? infoRow('🎂 Birthday', booking.birthdayDate ? new Date(booking.birthdayDate).toLocaleDateString('en-LK', {day:'numeric',month:'long',year:'numeric'}) : 'Date not set') : ''}
             ${booking.specialAnniversary ? infoRow('💑 Anniversary', booking.anniversaryDate ? new Date(booking.anniversaryDate).toLocaleDateString('en-LK', {day:'numeric',month:'long',year:'numeric'}) : 'Date not set') : ''}
-            ${booking.passportNumber ? infoRow('Passport', booking.passportNumber) : ''}
-            ${booking.companyName ? infoRow('Company', booking.companyName) : ''}
+            ${booking.passportNumber ? infoRow('Passport', escapeHtml(booking.passportNumber)) : ''}
+            ${booking.companyName ? infoRow('Company', escapeHtml(booking.companyName)) : ''}
           </div>
           ${booking.additionalGuests?.length ? `
             <div class="section-title">Additional Guests</div>
-            ${booking.additionalGuests.map(g => `<div style="font-size:0.85rem;margin-bottom:4px">👤 ${g.name} ${g.passport ? '— '+g.passport : ''}</div>`).join('')}
+            ${booking.additionalGuests.map(g => `<div style="font-size:0.85rem;margin-bottom:4px">👤 ${escapeHtml(g.name)} ${g.passport ? '— '+escapeHtml(g.passport) : ''}</div>`).join('')}
           ` : ''}
           ${booking.extraCharges?.length ? `
             <div class="section-title" style="margin-top:14px">✨ Extra Charges</div>
             ${booking.extraCharges.map(ec => `
               <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:4px; padding:2px 0">
-                <span>➕ ${ec.details || 'Extra Service'}${ec.isMeal ? ' <span style="font-size:0.75rem; color:var(--clr-accent)">(Meal + 10% SC)</span>' : ''}</span>
+                <span>➕ ${escapeHtml(ec.details || 'Extra Service')}${ec.isMeal ? ' <span style="font-size:0.75rem; color:var(--clr-accent)">(Meal + 10% SC)</span>' : ''}</span>
                 <span style="font-weight:600">LKR ${Number(ec.amount||0).toLocaleString()}</span>
               </div>
             `).join('')}
@@ -470,7 +488,7 @@ function showAdminBookingModal(booking) {
               ` : '';
             })()}
           ` : ''}
-          ${booking.notes ? `<div style="margin-top:12px;padding:10px;background:var(--clr-surface);border-radius:6px;font-size:0.85rem;color:var(--clr-text-muted)">📝 ${booking.notes}</div>` : ''}
+          ${booking.notes ? `<div style="margin-top:12px;padding:10px;background:var(--clr-surface);border-radius:6px;font-size:0.85rem;color:var(--clr-text-muted)">📝 ${escapeHtml(booking.notes)}</div>` : ''}
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" id="abv-close-2">Close</button>
@@ -517,4 +535,24 @@ function infoRow(label, value) {
       <div style="font-size:0.9rem;font-weight:600;color:var(--clr-text)">${value || '—'}</div>
     </div>
   `;
+}
+
+function getBookingGuestCount(booking) {
+  if (!booking) return 1;
+  const rawCount = Number(booking.guestCount);
+  const addlCount = (booking.additionalGuests && Array.isArray(booking.additionalGuests))
+    ? booking.additionalGuests.length
+    : 0;
+  const validRaw = (!isNaN(rawCount) && rawCount > 0) ? rawCount : 0;
+  return Math.max(1, validRaw, addlCount + 1);
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
