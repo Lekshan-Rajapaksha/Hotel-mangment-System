@@ -2,10 +2,17 @@
 import { formatCurrency, formatDate, nightCount } from '../utils/dateHelpers.js';
 import logoImg from '../assets/Blue cove hiriketiya (1).png';
 import { showToast } from '../utils/toast.js';
+import { openConsolidatedPrintBill, openEditGroupAdvanceModal } from './printConsolidatedBill.js';
+import html2pdf from 'html2pdf.js';
+export { openConsolidatedPrintBill, openEditGroupAdvanceModal };
 
 let currentMode = 'thermal'; // 'thermal' (80mm) | 'a4'
 
-export function openPrintBill(booking) {
+export function openPrintBill(booking, allBookings = []) {
+  if (Array.isArray(booking)) {
+    return openConsolidatedPrintBill(booking);
+  }
+
   const b = booking;
   const nights = nightCount(b.checkIn, b.checkOut);
   const extraChargesList = Array.isArray(b.extraCharges) ? b.extraCharges : [];
@@ -25,6 +32,20 @@ export function openPrintBill(booking) {
   const advance = Number(b.advancePaid || 0);
   const balance = b.remaining !== undefined ? Number(b.remaining) : Math.max(0, totalPrice - discount - advance);
   const isPaid = balance <= 0;
+
+  // Auto-detect other active bookings for the same guest on overlapping dates
+  const bCi = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+  const bCo = b.checkOut?.toDate ? b.checkOut.toDate() : new Date(b.checkOut);
+  const relatedBookings = (allBookings || []).filter(other => {
+    if (!other || other.id === b.id || other.status === 'cancelled') return false;
+    const matchPhone = b.phone && other.phone && String(b.phone).trim() === String(other.phone).trim();
+    const matchName = b.guestName && other.guestName && b.guestName.toLowerCase().trim() === other.guestName.toLowerCase().trim();
+    if (!matchPhone && !matchName) return false;
+    const oCi = other.checkIn?.toDate ? other.checkIn.toDate() : new Date(other.checkIn);
+    const oCo = other.checkOut?.toDate ? other.checkOut.toDate() : new Date(other.checkOut);
+    return (bCi < oCo && bCo > oCi);
+  });
+  const groupList = relatedBookings.length > 0 ? [b, ...relatedBookings] : null;
 
   // Remove any existing overlay
   document.querySelector('#print-bill-overlay')?.remove();
@@ -51,6 +72,9 @@ export function openPrintBill(booking) {
             </div>
           </div>
           <div class="flex gap-2 items-center">
+            <button class="btn btn-outline btn-sm" id="bill-pdf-btn" title="Download bill as PDF file" style="display:flex;align-items:center;gap:4px">
+              📥 Download PDF
+            </button>
             <button class="btn btn-secondary btn-sm" id="bill-copy-btn" title="Copy receipt details for WhatsApp/SMS">
               📋 Copy
             </button>
@@ -60,6 +84,16 @@ export function openPrintBill(booking) {
             <button class="modal-close" id="bill-close-btn" title="Close">✕</button>
           </div>
         </div>
+
+        ${groupList ? `
+        <div class="print-multi-room-banner no-print" style="margin:10px 16px 0; padding:10px 14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
+          <div style="font-size:0.84rem; color:#1e40af">
+            🏨 <strong>Multi-Room Booking:</strong> This guest has <strong>${groupList.length} rooms</strong> booked on these dates (Rooms ${groupList.map(x=>x.roomNumber).sort().join(', ')}).
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-print-group-bill" style="white-space:nowrap; padding:5px 12px">
+            📄 Print Combined Bill (${groupList.length} Rooms)
+          </button>
+        </div>` : ''}
 
         <div class="modal-body print-modal-scroll" style="padding:0">
           <div class="print-preview-stage" id="printable-content">
@@ -506,6 +540,50 @@ export function openPrintBill(booking) {
     window.print();
   });
 
+  // Bind Download PDF
+  document.getElementById('bill-pdf-btn')?.addEventListener('click', async () => {
+    const pdfBtn = document.getElementById('bill-pdf-btn');
+    const originalText = pdfBtn ? pdfBtn.innerHTML : '📥 Download PDF';
+    if (pdfBtn) {
+      pdfBtn.disabled = true;
+      pdfBtn.innerHTML = '⏳ Generating PDF...';
+    }
+
+    try {
+      const isThermal = currentMode === 'thermal';
+      const element = isThermal ? thermalView : a4View;
+      if (!element) throw new Error('Invoice view element not found');
+
+      const filename = `${billNo}-${isThermal ? 'Receipt' : 'Invoice'}.pdf`;
+
+      const opt = {
+        margin: isThermal ? [4, 4, 4, 4] : [8, 8, 8, 8],
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        },
+        jsPDF: isThermal
+          ? { unit: 'mm', format: [80, Math.max(160, Math.ceil(element.offsetHeight * 0.264583) + 12)], orientation: 'portrait' }
+          : { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+      showToast(`Bill PDF downloaded: ${filename} 📄`, 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to generate PDF: ' + err.message, 'error');
+    } finally {
+      if (pdfBtn) {
+        pdfBtn.disabled = false;
+        pdfBtn.innerHTML = originalText;
+      }
+    }
+  });
+
   // Bind Copy Button (Text receipt for WhatsApp / SMS)
   document.getElementById('bill-copy-btn')?.addEventListener('click', () => {
     const text = generateTextReceipt(b, billNo, today, timeStr, nights, pricePerNight, roomPriceTotal, totalPrice, discount, advance, balance, isPaid, serviceChargeTotal);
@@ -514,6 +592,13 @@ export function openPrintBill(booking) {
     }).catch(() => {
       showToast('Failed to copy to clipboard', 'error');
     });
+  });
+
+  // Bind Group Bill button (if multi-room detected)
+  document.getElementById('btn-print-group-bill')?.addEventListener('click', () => {
+    if (groupList && groupList.length) {
+      openConsolidatedPrintBill(groupList);
+    }
   });
 
   // Bind Close Buttons
