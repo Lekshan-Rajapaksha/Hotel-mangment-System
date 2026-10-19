@@ -87,3 +87,15 @@ export function getYearMonths(year) {
 export function formatCurrency(amount) {
   return `LKR ${Number(amount || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
 }
+
+/** Calculate total guest count for a booking */
+export function getBookingGuestCount(booking) {
+  if (!booking) return 1;
+  const rawCount = Number(booking.guestCount);
+  const addlCount = (booking.additionalGuests && Array.isArray(booking.additionalGuests))
+    ? booking.additionalGuests.length
+    : 0;
+  const validRaw = (!isNaN(rawCount) && rawCount > 0) ? rawCount : 0;
+  return Math.max(1, validRaw, addlCount + 1);
+}
+

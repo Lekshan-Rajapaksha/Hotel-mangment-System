@@ -2,10 +2,10 @@
 import {
   toDateStr, formatDate, getDatesInRange,
   getWeekRange, getMonthDays, getYearMonths,
-  MONTHS, DAYS_SHORT
+  MONTHS, DAYS_SHORT, getBookingGuestCount
 } from '../utils/dateHelpers.js';
 import { openBookingModal } from './bookingModal.js';
-import { openPrintBill } from './printBill.js';
+import { openPrintBill, openConsolidatedPrintBill } from './printBill.js';
 import { subscribeBookings } from '../services/bookingService.js';
 import { deleteBooking } from '../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../utils/toast.js';
@@ -436,6 +436,20 @@ function showAdminBookingModal(booking) {
   );
   const guestCount = getBookingGuestCount(booking);
 
+  // Detect related bookings for the same guest on overlapping dates
+  const bCi = booking.checkIn?.toDate ? booking.checkIn.toDate() : new Date(booking.checkIn);
+  const bCo = booking.checkOut?.toDate ? booking.checkOut.toDate() : new Date(booking.checkOut);
+  const related = (allBookings || []).filter(other => {
+    if (!other || other.id === booking.id || other.status === 'cancelled') return false;
+    const matchPhone = booking.phone && other.phone && String(booking.phone).trim() === String(other.phone).trim();
+    const matchName = booking.guestName && other.guestName && booking.guestName.toLowerCase().trim() === other.guestName.toLowerCase().trim();
+    if (!matchPhone && !matchName) return false;
+    const oCi = other.checkIn?.toDate ? other.checkIn.toDate() : new Date(other.checkIn);
+    const oCo = other.checkOut?.toDate ? other.checkOut.toDate() : new Date(other.checkOut);
+    return (bCi < oCo && bCo > oCi);
+  });
+  const groupBookings = related.length > 0 ? [booking, ...related] : null;
+
   const html = `
     <div class="modal-overlay" id="admin-booking-view">
       <div class="modal">
@@ -444,6 +458,10 @@ function showAdminBookingModal(booking) {
           <button class="modal-close" id="abv-close">✕</button>
         </div>
         <div class="modal-body">
+          ${groupBookings ? `
+          <div style="margin-bottom:14px; padding:8px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; font-size:0.82rem; color:#1e40af; display:flex; justify-content:space-between; align-items:center; gap:8px">
+            <span>🏨 <strong>Multi-room booking:</strong> ${groupBookings.length} rooms booked by this guest (Rooms ${groupBookings.map(x=>x.roomNumber).sort().join(', ')}).</span>
+          </div>` : ''}
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px">
             ${infoRow('Guest', escapeHtml(booking.guestName))}
             ${infoRow('Guests', `👥 ${guestCount} Guest${guestCount > 1 ? 's' : ''}`)}
@@ -492,7 +510,12 @@ function showAdminBookingModal(booking) {
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" id="abv-close-2">Close</button>
-          <button class="btn btn-secondary" id="abv-print-btn" style="display:inline-flex;align-items:center;gap:6px">🖨️ Print Bill</button>
+          ${groupBookings ? `
+            <button class="btn btn-primary" id="abv-print-combined-btn" style="display:inline-flex;align-items:center;gap:6px">
+              🏨 Print Combined Bill (${groupBookings.length} Rooms)
+            </button>
+          ` : ''}
+          <button class="btn btn-secondary" id="abv-print-btn" style="display:inline-flex;align-items:center;gap:6px">🖨️ Print Single Bill</button>
           <button class="btn btn-danger" id="abv-delete-btn">🗑 Delete Booking</button>
         </div>
       </div>
@@ -505,7 +528,10 @@ function showAdminBookingModal(booking) {
   document.getElementById('abv-close')?.addEventListener('click', closeAdminView);
   document.getElementById('abv-close-2')?.addEventListener('click', closeAdminView);
   document.getElementById('abv-print-btn')?.addEventListener('click', () => {
-    openPrintBill(booking);
+    openPrintBill(booking, allBookings);
+  });
+  document.getElementById('abv-print-combined-btn')?.addEventListener('click', () => {
+    if (groupBookings) openConsolidatedPrintBill(groupBookings);
   });
   document.getElementById('admin-booking-view')?.addEventListener('click', e => {
     if (e.target.id === 'admin-booking-view') closeAdminView();
@@ -535,16 +561,6 @@ function infoRow(label, value) {
       <div style="font-size:0.9rem;font-weight:600;color:var(--clr-text)">${value || '—'}</div>
     </div>
   `;
-}
-
-function getBookingGuestCount(booking) {
-  if (!booking) return 1;
-  const rawCount = Number(booking.guestCount);
-  const addlCount = (booking.additionalGuests && Array.isArray(booking.additionalGuests))
-    ? booking.additionalGuests.length
-    : 0;
-  const validRaw = (!isNaN(rawCount) && rawCount > 0) ? rawCount : 0;
-  return Math.max(1, validRaw, addlCount + 1);
 }
 
 function escapeHtml(str) {

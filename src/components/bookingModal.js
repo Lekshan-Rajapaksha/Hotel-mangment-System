@@ -2,7 +2,7 @@
 import { createBooking, updateBooking, getNextBookingNumber, formatBookingNumber } from '../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../utils/toast.js';
 import { toDateStr, formatCurrency } from '../utils/dateHelpers.js';
-import { openPrintBill } from './printBill.js';
+import { openPrintBill, openConsolidatedPrintBill } from './printBill.js';
 import { getPrices, DEFAULT_PRICES } from '../services/priceService.js';
 
 let modalEl = null;
@@ -10,12 +10,37 @@ let currentBooking = null;
 let onSavedCallback = null;
 let _allBookings = []; // cache of all active bookings for conflict detection
 let _prices = { ...DEFAULT_PRICES }; // cached price log — loaded fresh each time modal opens
+let _relatedGroupBookings = []; // all bookings belonging to the same group/guest when editing
 
 export async function openBookingModal(opts = {}) {
   const { booking = null, defaultRoom = 1, defaultDate = null, onSaved = () => {}, allBookings = [] } = opts;
   _allBookings = allBookings;
   currentBooking = booking;
   onSavedCallback = onSaved;
+
+  // Identify if this booking is part of a multi-room group reservation
+  _relatedGroupBookings = [];
+  if (booking) {
+    const bCi = booking.checkIn?.toDate ? booking.checkIn.toDate() : new Date(booking.checkIn);
+    const bCo = booking.checkOut?.toDate ? booking.checkOut.toDate() : new Date(booking.checkOut);
+    _relatedGroupBookings = (_allBookings || []).filter(other => {
+      if (!other || other.status === 'cancelled') return false;
+      if (booking.groupBookingId && other.groupBookingId && other.groupBookingId === booking.groupBookingId) {
+        return true;
+      }
+      const matchPhone = booking.phone && other.phone && String(booking.phone).trim() === String(other.phone).trim();
+      const matchName = booking.guestName && other.guestName && booking.guestName.toLowerCase().trim() === other.guestName.toLowerCase().trim();
+      if (!matchPhone && !matchName) return false;
+      const oCi = other.checkIn?.toDate ? other.checkIn.toDate() : new Date(other.checkIn);
+      const oCo = other.checkOut?.toDate ? other.checkOut.toDate() : new Date(other.checkOut);
+      return (bCi < oCo && bCo > oCi);
+    });
+  }
+
+  const isGroupEdit = Boolean(booking && _relatedGroupBookings.length > 1);
+  const groupTotalAdvance = isGroupEdit ? _relatedGroupBookings.reduce((sum, item) => sum + (Number(item.advancePaid) || 0), 0) : 0;
+  const groupTotalFullPrice = isGroupEdit ? _relatedGroupBookings.reduce((sum, item) => sum + (Number(item.fullPrice) || 0), 0) : 0;
+  const groupTotalDiscount = isGroupEdit ? _relatedGroupBookings.reduce((sum, item) => sum + (Number(item.discountAmount) || 0), 0) : 0;
 
   // Load latest prices from Price Log (Firestore) — fall back to defaults silently
   try { _prices = await getPrices(); } catch (_) { _prices = { ...DEFAULT_PRICES }; }
@@ -53,7 +78,7 @@ export async function openBookingModal(opts = {}) {
             <h2 class="modal-title" id="modal-title-bk" style="display:flex; align-items:center; gap:8px">
               ${booking ? `✏️ Edit Booking <span class="badge badge-accent">#${bookingNo}</span>` : `➕ New Booking <span class="badge badge-primary">#${bookingNo}</span>`}
             </h2>
-            <div style="font-size:0.78rem;color:var(--clr-text-muted);margin-top:2px">
+            <div id="modal-subtitle-bk" style="font-size:0.78rem;color:var(--clr-text-muted);margin-top:2px">
               Room ${b.roomNumber || defaultRoom} · ${booking ? 'Update guest details' : 'Fill in guest details'}
             </div>
           </div>
@@ -145,9 +170,31 @@ export async function openBookingModal(opts = {}) {
 
             <div class="divider"></div>
 
+            ${!booking ? `
+            <!-- === RESERVATION TYPE SELECTOR === -->
+            <div style="background:var(--clr-surface-alt, rgba(255,255,255,0.03)); border:1px solid var(--clr-border); border-radius:10px; padding:12px 14px; margin-bottom:16px">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+                <span style="font-weight:700; font-size:0.85rem; color:var(--clr-text)">📋 Reservation Type</span>
+                <span id="bk-multi-badge" class="badge badge-accent" style="display:none; font-size:0.75rem">Group / Buyout Mode</span>
+              </div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px">
+                <label style="display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; border:1px solid var(--clr-border); cursor:pointer; background:var(--clr-surface); font-size:0.84rem; font-weight:600">
+                  <input type="radio" name="bk-mode" id="bk-mode-single" value="single" checked style="accent-color:var(--clr-primary); width:16px; height:16px" />
+                  <span>🛏️ Single Room</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; border:1px solid var(--clr-border); cursor:pointer; background:var(--clr-surface); font-size:0.84rem; font-weight:600">
+                  <input type="radio" name="bk-mode" id="bk-mode-multi" value="multi" style="accent-color:var(--clr-primary); width:16px; height:16px" />
+                  <span>🏨 Multi-Room / Event Buyout</span>
+                </label>
+              </div>
+            </div>
+            ` : ''}
+
             <!-- === STAY DETAILS === -->
             <div class="section-title">🏠 Room & Stay Details</div>
-            <div class="form-row" style="margin-bottom:14px">
+            
+            <!-- Single room select (default) -->
+            <div id="bk-single-room-group" class="form-row" style="margin-bottom:14px">
               <div class="form-group">
                 <label class="form-label" for="bk-room">Room Number *</label>
                 <select id="bk-room" class="form-control" required>
@@ -159,6 +206,37 @@ export async function openBookingModal(opts = {}) {
                 <select id="bk-ac" class="form-control">
                   <option value="AC" ${(b.acType||'AC')==='AC'?'selected':''}>AC Room</option>
                   <option value="NonAC" ${b.acType==='NonAC'?'selected':''}>Non-AC Room</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Multi-room selection card (visible when multi-mode chosen) -->
+            <div id="bk-multi-rooms-section" style="display:none; margin-bottom:16px; padding:14px; background:linear-gradient(135deg, rgba(108,138,255,0.06), rgba(167,139,250,0.06)); border:1.5px solid rgba(108,138,255,0.3); border-radius:10px">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px">
+                <div>
+                  <div style="font-weight:700; font-size:0.9rem; color:var(--clr-text)">Select Rooms for Group / Event</div>
+                  <div style="font-size:0.75rem; color:var(--clr-text-muted)" id="bk-multi-count-summary">0 rooms selected</div>
+                </div>
+                <div style="display:flex; gap:6px">
+                  <button type="button" class="btn btn-sm btn-primary" id="btn-select-all-rooms" style="font-size:0.75rem; padding:5px 12px; font-weight:600">
+                    ⚡ Select All 7 Rooms (Whole Hotel Buyout)
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline" id="btn-clear-all-rooms" style="font-size:0.75rem; padding:5px 10px">
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div id="bk-multi-rooms-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:8px"></div>
+              <div id="bk-multi-calc-hint" style="margin-top:10px; font-size:0.8rem; color:var(--clr-primary); font-weight:600; display:none"></div>
+            </div>
+
+            <!-- AC selection for Multi-Room mode -->
+            <div id="bk-multi-ac-row" class="form-row" style="margin-bottom:14px; display:none">
+              <div class="form-group">
+                <label class="form-label" for="bk-ac-multi">Air Conditioning (All Selected Rooms)</label>
+                <select id="bk-ac-multi" class="form-control">
+                  <option value="AC" ${(b.acType||'AC')==='AC'?'selected':''}>AC Rooms</option>
+                  <option value="NonAC" ${b.acType==='NonAC'?'selected':''}>Non-AC Rooms</option>
                 </select>
               </div>
             </div>
@@ -233,22 +311,46 @@ export async function openBookingModal(opts = {}) {
 
             <div class="divider"></div>
 
+            ${isGroupEdit ? `
+            <!-- === GROUP STAY DETECTED (EDIT MODE) === -->
+            <div style="background:linear-gradient(135deg, rgba(108,138,255,0.08), rgba(167,139,250,0.08)); border:1.5px solid rgba(108,138,255,0.35); border-radius:10px; padding:12px 16px; margin-bottom:16px">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span style="font-size:1.15rem">🏨</span>
+                  <span style="font-weight:700; font-size:0.9rem; color:var(--clr-text)">Group Stay Detected (${_relatedGroupBookings.length} Rooms)</span>
+                </div>
+                <span class="badge badge-accent">Rooms: ${_relatedGroupBookings.map(r => r.roomNumber).sort((a,b)=>Number(a)-Number(b)).join(', ')}</span>
+              </div>
+              <div style="font-size:0.8rem; color:var(--clr-text-muted); line-height:1.4; margin-bottom:10px">
+                Total Group Bill: <strong>${formatCurrency(groupTotalFullPrice - groupTotalDiscount)}</strong> · Current Total Advance: <strong>${formatCurrency(groupTotalAdvance)}</strong>
+              </div>
+              <label style="display:flex; align-items:center; gap:10px; cursor:pointer; background:var(--clr-surface); padding:8px 12px; border-radius:6px; border:1px solid var(--clr-border); user-select:none">
+                <input type="checkbox" id="bk-sync-group-advance" checked style="accent-color:var(--clr-primary); width:18px; height:18px; cursor:pointer" />
+                <span style="font-size:0.82rem; font-weight:600; color:var(--clr-text)">
+                  💰 Edit Advance for ALL ${_relatedGroupBookings.length} Rooms (will divide equally)
+                </span>
+              </label>
+            </div>
+            ` : ''}
+
             <!-- === PRICING === -->
             <div class="section-title" style="margin-bottom:10px">💰 Pricing</div>
             <div class="form-row" style="margin-bottom:14px">
               <div class="form-group">
-                <label class="form-label" for="bk-priceperday">Price Per Day (LKR) *</label>
+                <label class="form-label" for="bk-priceperday" id="bk-priceperday-label">Price Per Day (LKR) *</label>
                 <input type="number" id="bk-priceperday" class="form-control" placeholder="0.00" min="0" step="0.01" value="${b.pricePerDay||''}" required />
               </div>
               <div class="form-group">
-                <label class="form-label" for="bk-fullprice">Full Price (LKR) *</label>
+                <label class="form-label" for="bk-fullprice" id="bk-fullprice-label">Full Price (LKR) *</label>
                 <input type="number" id="bk-fullprice" class="form-control" placeholder="0.00" min="0" step="0.01" value="${b.fullPrice||''}" required />
               </div>
             </div>
-            <div class="form-row" style="margin-bottom:14px">
+            <div class="form-row" style="margin-bottom:8px">
               <div class="form-group">
-                <label class="form-label" for="bk-advance">Advance Paid (LKR)</label>
-                <input type="number" id="bk-advance" class="form-control" placeholder="0.00" min="0" step="0.01" value="${b.advancePaid||0}" />
+                <label class="form-label" for="bk-advance" id="bk-advance-label">
+                  ${isGroupEdit ? `Total Group Advance (${_relatedGroupBookings.length} Rooms) (LKR)` : 'Advance Paid (LKR)'}
+                </label>
+                <input type="number" id="bk-advance" class="form-control" placeholder="0.00" min="0" step="0.01" value="${isGroupEdit ? (groupTotalAdvance || 0) : (b.advancePaid||0)}" />
               </div>
               <div class="form-group">
                 <label class="form-label">Remaining (LKR)</label>
@@ -256,6 +358,11 @@ export async function openBookingModal(opts = {}) {
                   ${b.fullPrice ? formatCurrency((b.fullPrice||0) - (b.discountAmount||0) - (b.advancePaid||0)) : '—'}
                 </div>
               </div>
+            </div>
+
+            <!-- Dynamic Advance Division Helper Banner -->
+            <div id="bk-advance-split-banner" style="display:none; padding:10px 14px; margin-bottom:14px; background:linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.08)); border:1.5px solid rgba(16,185,129,0.3); border-radius:8px">
+              <div id="bk-advance-split-text" style="font-size:0.82rem; color:var(--clr-text)"></div>
             </div>
             <div class="form-row" style="margin-bottom:14px">
               <div class="form-group">
@@ -410,17 +517,111 @@ function bindModalEvents() {
     updateNights();
     syncOccasionDateLimits();
     updateAvailabilityWarning();
+    renderMultiRoomsGrid();
     calcAndFill();
   });
   document.getElementById('bk-checkout')?.addEventListener('change', () => {
     updateNights();
     syncOccasionDateLimits();
     updateAvailabilityWarning();
+    renderMultiRoomsGrid();
     calcAndFill();
   });
 
   // Room change for availability warning
-  document.getElementById('bk-room')?.addEventListener('change', updateAvailabilityWarning);
+  document.getElementById('bk-room')?.addEventListener('change', () => {
+    updateAvailabilityWarning();
+    const subTitle = document.getElementById('modal-subtitle-bk');
+    if (subTitle && !currentBooking) {
+      subTitle.textContent = `Room ${document.getElementById('bk-room')?.value} · Fill in guest details`;
+    }
+  });
+
+  // Reservation mode change (Single Room vs Multi-Room / Event Buyout)
+  document.querySelectorAll('input[name="bk-mode"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const isMulti = e.target.value === 'multi';
+      const singleWrap = document.getElementById('bk-single-room-group');
+      const multiSec = document.getElementById('bk-multi-rooms-section');
+      const multiAcRow = document.getElementById('bk-multi-ac-row');
+      const multiBadge = document.getElementById('bk-multi-badge');
+      const warningEl = document.getElementById('bk-avail-warning');
+      const subTitle = document.getElementById('modal-subtitle-bk');
+      const priceLabel = document.getElementById('bk-priceperday-label');
+      const fullPriceLabel = document.getElementById('bk-fullprice-label');
+      const saveBtn = document.getElementById('booking-save-btn');
+      const savePrintBtn = document.getElementById('booking-save-print-btn');
+
+      if (singleWrap) singleWrap.style.display = isMulti ? 'none' : 'flex';
+      if (multiSec) multiSec.style.display = isMulti ? 'block' : 'none';
+      if (multiAcRow) multiAcRow.style.display = isMulti ? 'flex' : 'none';
+      if (multiBadge) multiBadge.style.display = isMulti ? 'inline-block' : 'none';
+
+      if (priceLabel) priceLabel.textContent = isMulti ? 'Price Per Room / Day (LKR) *' : 'Price Per Day (LKR) *';
+      if (fullPriceLabel) fullPriceLabel.textContent = isMulti ? 'Total Group Price (All Rooms) *' : 'Full Price (LKR) *';
+      const advLabel = document.getElementById('bk-advance-label');
+      if (advLabel && !currentBooking) {
+        advLabel.textContent = isMulti ? 'Total Advance Paid by Buyer (All Selected Rooms) (LKR)' : 'Advance Paid (LKR)';
+      }
+      if (saveBtn) saveBtn.textContent = isMulti ? '💾 Confirm Group Booking' : (currentBooking ? '💾 Update Booking' : '✅ Confirm Booking');
+      if (savePrintBtn) savePrintBtn.innerHTML = isMulti ? '🖨️ Confirm &amp; Print Combined Bill' : (currentBooking ? '🖨️ Update &amp; Print Bill' : '🖨️ Confirm &amp; Print Bill');
+
+      if (subTitle) {
+        subTitle.textContent = isMulti ? 'Multi-Room / Buyout Event · Fill in guest & group details' : `Room ${document.getElementById('bk-room')?.value || 100} · Fill in guest details`;
+      }
+
+      if (isMulti) {
+        renderMultiRoomsGrid();
+        if (warningEl) warningEl.style.display = 'none';
+      } else {
+        updateAvailabilityWarning();
+      }
+      calcAndFill();
+    });
+  });
+
+  // Sync group advance checkbox for existing group bookings
+  document.getElementById('bk-sync-group-advance')?.addEventListener('change', (e) => {
+    const isSync = e.target.checked;
+    const advInput = document.getElementById('bk-advance');
+    const advLabel = document.getElementById('bk-advance-label');
+    const groupCount = _relatedGroupBookings.length;
+    const groupTotalAdv = _relatedGroupBookings.reduce((sum, item) => sum + (Number(item.advancePaid) || 0), 0);
+
+    if (advLabel) {
+      advLabel.textContent = isSync ? `Total Group Advance (${groupCount} Rooms) (LKR)` : 'Advance Paid (This Room Only) (LKR)';
+    }
+    if (advInput) {
+      advInput.value = isSync ? (groupTotalAdv || '') : (currentBooking?.advancePaid || '');
+    }
+    updateRemaining();
+  });
+
+  document.getElementById('btn-select-all-rooms')?.addEventListener('click', () => {
+    document.querySelectorAll('.bk-multi-room-cb:not(:disabled)').forEach(cb => {
+      cb.checked = true;
+      const card = cb.closest('.multi-room-card');
+      if (card) {
+        card.style.borderColor = 'var(--clr-primary)';
+        card.style.background = 'var(--clr-primary-dim)';
+      }
+    });
+    updateMultiCountSummary();
+    calcAndFill();
+  });
+
+  document.getElementById('btn-clear-all-rooms')?.addEventListener('click', () => {
+    document.querySelectorAll('.bk-multi-room-cb').forEach(cb => {
+      cb.checked = false;
+      const card = cb.closest('.multi-room-card');
+      if (card) {
+        card.style.borderColor = 'var(--clr-border)';
+        card.style.background = 'var(--clr-surface)';
+      }
+    });
+    updateMultiCountSummary();
+    calcAndFill();
+  });
 
   // Recalc full price when price per day changes
   document.getElementById('bk-priceperday')?.addEventListener('input', calcAndFill);
@@ -565,11 +766,19 @@ function checkDateConflict(roomNumber, newCheckIn, newCheckOut) {
  * Shows or hides the availability warning banner inside the modal.
  */
 function updateAvailabilityWarning() {
+  const isMulti = !currentBooking && !!document.getElementById('bk-mode-multi')?.checked;
+  const warningEl = document.getElementById('bk-avail-warning');
+  if (isMulti) {
+    if (warningEl) warningEl.style.display = 'none';
+    updateMultiCountSummary();
+    return;
+  }
+
   const roomEl    = document.getElementById('bk-room');
   const checkIn   = document.getElementById('bk-checkin')?.value;
   const checkOut  = document.getElementById('bk-checkout')?.value;
-  const warningEl = document.getElementById('bk-avail-warning');
   const saveBtn   = document.getElementById('booking-save-btn');
+  const savePrintBtn = document.getElementById('booking-save-print-btn');
   if (!warningEl || !saveBtn) return;
 
   const room = parseInt(roomEl?.value || '0');
@@ -582,11 +791,115 @@ function updateAvailabilityWarning() {
     saveBtn.disabled = true;
     saveBtn.style.opacity = '0.5';
     saveBtn.style.cursor = 'not-allowed';
+    if (savePrintBtn) {
+      savePrintBtn.disabled = true;
+      savePrintBtn.style.opacity = '0.5';
+      savePrintBtn.style.cursor = 'not-allowed';
+    }
   } else {
     warningEl.style.display = 'none';
     saveBtn.disabled = false;
     saveBtn.style.opacity = '';
     saveBtn.style.cursor = '';
+    if (savePrintBtn) {
+      savePrintBtn.disabled = false;
+      savePrintBtn.style.opacity = '';
+      savePrintBtn.style.cursor = '';
+    }
+  }
+}
+
+/**
+ * Renders the multi-room selection grid with live date-conflict indicators
+ */
+function renderMultiRoomsGrid() {
+  const grid = document.getElementById('bk-multi-rooms-grid');
+  if (!grid) return;
+  const ci = document.getElementById('bk-checkin')?.value;
+  const co = document.getElementById('bk-checkout')?.value;
+  const allRooms = [100, 101, 102, 103, 104, 105, 106];
+
+  // Preserve existing user checks if any
+  const previouslyChecked = new Set(
+    Array.from(grid.querySelectorAll('.bk-multi-room-cb:checked')).map(cb => parseInt(cb.value))
+  );
+
+  grid.innerHTML = allRooms.map(room => {
+    const conflict = checkDateConflict(room, ci, co);
+    const isBooked = !!conflict;
+    // Default to checked if user hasn't unchecked, or if newly opened
+    const isChecked = !isBooked && (previouslyChecked.size > 0 ? previouslyChecked.has(room) : true);
+
+    return `
+      <label class="multi-room-card" data-room="${room}" style="
+        display:flex; flex-direction:column; justify-content:space-between;
+        padding:9px 11px; border-radius:8px;
+        border:1.5px solid ${isBooked ? 'rgba(239,68,68,0.45)' : isChecked ? 'var(--clr-primary)' : 'var(--clr-border)'};
+        background:${isBooked ? 'rgba(239,68,68,0.06)' : isChecked ? 'var(--clr-primary-dim)' : 'var(--clr-surface)'};
+        cursor:${isBooked ? 'not-allowed' : 'pointer'};
+        opacity:${isBooked ? '0.6' : '1'};
+        transition:all 0.15s ease;
+      ">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px">
+          <span style="font-weight:700; font-size:0.95rem; color:${isBooked ? '#ef4444' : 'var(--clr-text)'}">
+            Room ${room}
+          </span>
+          <input type="checkbox" value="${room}" class="bk-multi-room-cb"
+            ${isChecked ? 'checked' : ''} ${isBooked ? 'disabled' : ''}
+            style="accent-color:var(--clr-primary); width:18px; height:18px; cursor:${isBooked ? 'not-allowed' : 'pointer'}" />
+        </div>
+        <div style="font-size:0.72rem; color:${isBooked ? '#ef4444' : 'var(--clr-text-muted)'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" title="${isBooked ? `Booked by ${conflict.guestName} (${conflict.checkIn} to ${conflict.checkOut})` : 'Available for booking'}">
+          ${isBooked ? `⚠️ Booked (${conflict.guestName})` : '✅ Available'}
+        </div>
+      </label>
+    `;
+  }).join('');
+
+  grid.querySelectorAll('.bk-multi-room-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const card = cb.closest('.multi-room-card');
+      if (card) {
+        card.style.borderColor = cb.checked ? 'var(--clr-primary)' : 'var(--clr-border)';
+        card.style.background = cb.checked ? 'var(--clr-primary-dim)' : 'var(--clr-surface)';
+      }
+      updateMultiCountSummary();
+      calcAndFill();
+    });
+  });
+
+  updateMultiCountSummary();
+}
+
+/**
+ * Updates selected rooms count summary and enables/disables save buttons in multi-room mode
+ */
+function updateMultiCountSummary() {
+  const isMulti = !currentBooking && !!document.getElementById('bk-mode-multi')?.checked;
+  const checked = document.querySelectorAll('.bk-multi-room-cb:checked');
+  const countEl = document.getElementById('bk-multi-count-summary');
+  const saveBtn = document.getElementById('booking-save-btn');
+  const savePrintBtn = document.getElementById('booking-save-print-btn');
+  const count = checked.length;
+
+  if (countEl) {
+    const list = Array.from(checked).map(c => c.value).join(', ');
+    countEl.textContent = count === 0
+      ? '0 rooms selected (Please select at least 1 room)'
+      : `${count} of 7 rooms selected [${list}]`;
+  }
+
+  if (isMulti) {
+    const disabled = count === 0;
+    if (saveBtn) {
+      saveBtn.disabled = disabled;
+      saveBtn.style.opacity = disabled ? '0.5' : '';
+      saveBtn.style.cursor = disabled ? 'not-allowed' : '';
+    }
+    if (savePrintBtn) {
+      savePrintBtn.disabled = disabled;
+      savePrintBtn.style.opacity = disabled ? '0.5' : '';
+      savePrintBtn.style.cursor = disabled ? 'not-allowed' : '';
+    }
   }
 }
 
@@ -626,11 +939,47 @@ function updateRemaining() {
   const full = parseFloat(document.getElementById('bk-fullprice')?.value) || 0;
   const adv  = parseFloat(document.getElementById('bk-advance')?.value) || 0;
   const disc = parseFloat(document.getElementById('bk-discount')?.value) || 0;
-  const rem = full - disc - adv;
+  const rem = Math.max(0, full - disc - adv);
   const el = document.getElementById('bk-remaining');
   if (el) {
     el.textContent = formatCurrency(rem);
     el.style.color = rem <= 0 ? 'var(--clr-success)' : 'var(--clr-accent)';
+  }
+
+  // Update Advance Division helper banner
+  const isMulti = !currentBooking && !!document.getElementById('bk-mode-multi')?.checked;
+  const isGroupEdit = Boolean(currentBooking && _relatedGroupBookings?.length > 1 && document.getElementById('bk-sync-group-advance')?.checked);
+  const banner = document.getElementById('bk-advance-split-banner');
+  const textEl = document.getElementById('bk-advance-split-text');
+
+  let roomCount = 1;
+  let roomNumbers = [];
+  if (isMulti) {
+    const checked = Array.from(document.querySelectorAll('.bk-multi-room-cb:checked')).map(cb => parseInt(cb.value));
+    roomCount = checked.length || 1;
+    roomNumbers = checked;
+  } else if (isGroupEdit) {
+    roomCount = _relatedGroupBookings.length;
+    roomNumbers = _relatedGroupBookings.map(r => r.roomNumber).sort((a,b)=>Number(a)-Number(b));
+  }
+
+  if (banner && textEl) {
+    if ((isMulti || isGroupEdit) && roomCount > 1) {
+      banner.style.display = 'block';
+      const perRoomAdv = Math.floor((adv / roomCount) * 100) / 100;
+      const perRoomRem = Math.round((rem / roomCount) * 100) / 100;
+      textEl.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px">
+          <span>⚡ <strong>Advance Split:</strong> ${formatCurrency(adv)} ÷ ${roomCount} rooms = <span style="color:var(--clr-success); font-weight:700">${formatCurrency(perRoomAdv)}</span> / room</span>
+          <span style="font-size:0.75rem; color:var(--clr-text-muted)">Rooms: [${roomNumbers.join(', ')}]</span>
+        </div>
+        <div style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:3px">
+          Balance remaining per room: <strong>${formatCurrency(perRoomRem)}</strong> (Total balance: ${formatCurrency(rem)})
+        </div>
+      `;
+    } else {
+      banner.style.display = 'none';
+    }
   }
 }
 
@@ -706,11 +1055,29 @@ function calcAndFill() {
   const priceInput = document.getElementById('bk-fullprice');
   if (!priceInput) return;
 
+  const isMulti = !currentBooking && !!document.getElementById('bk-mode-multi')?.checked;
+  const selectedRooms = isMulti
+    ? Array.from(document.querySelectorAll('.bk-multi-room-cb:checked')).map(cb => parseInt(cb.value))
+    : [1];
+  const roomMultiplier = isMulti ? Math.max(1, selectedRooms.length) : 1;
+
   if (ci && co) {
     const nights = Math.max(0, Math.round((new Date(co) - new Date(ci)) / 86400000));
     if (nights > 0 && pricePerDay > 0) {
-      const grandTotal = (pricePerDay * nights) + combinedTotal;
+      const roomTotal = pricePerDay * nights * roomMultiplier;
+      const grandTotal = roomTotal + combinedTotal;
       priceInput.value = grandTotal.toFixed(2);
+
+      const hint = document.getElementById('bk-multi-calc-hint');
+      if (hint) {
+        if (isMulti) {
+          hint.style.display = 'block';
+          hint.innerHTML = `💡 Group Breakdown: <strong>${roomMultiplier} room${roomMultiplier > 1 ? 's' : ''}</strong> × ${nights} night${nights > 1 ? 's' : ''} @ ${formatCurrency(pricePerDay)} = <strong>${formatCurrency(roomTotal)}</strong>${combinedTotal > 0 ? ` (+ Extras ${formatCurrency(combinedTotal)})` : ''}`;
+        } else {
+          hint.style.display = 'none';
+        }
+      }
+
       updateRemaining();
       return;
     }
@@ -736,14 +1103,7 @@ async function saveBooking(andPrint = false) {
   if (new Date(checkOut) <= new Date(checkIn)) { showToast('Check-out must be after check-in', 'error'); return; }
   if (!fullPrice || fullPrice <= 0) { showToast('Please enter the full price', 'error'); return; }
 
-  // Final conflict guard (in case UI warning was somehow bypassed)
-  const roomNum = parseInt(document.getElementById('bk-room')?.value);
-  const conflict = checkDateConflict(roomNum, checkIn, checkOut);
-  if (conflict) {
-    showToast(`Room ${roomNum} is already booked by "${conflict.guestName}" (${conflict.checkIn} → ${conflict.checkOut}). Choose different dates or room.`, 'error');
-    updateAvailabilityWarning();
-    return;
-  }
+  const isMulti = !currentBooking && !!document.getElementById('bk-mode-multi')?.checked;
 
   const advancePaid = parseFloat(document.getElementById('bk-advance')?.value) || 0;
   const discountAmount = parseFloat(document.getElementById('bk-discount')?.value) || 0;
@@ -775,6 +1135,124 @@ async function saveBooking(andPrint = false) {
   });
   const extraChargesTotal = extraCharges.reduce((sum, item) => sum + item.amount, 0);
   const serviceChargeTotal = extraCharges.reduce((sum, item) => sum + (item.serviceCharge || 0), 0);
+
+  // === MULTI-ROOM / EVENT BUYOUT CREATION ===
+  if (isMulti) {
+    const selectedRooms = Array.from(document.querySelectorAll('.bk-multi-room-cb:checked')).map(cb => parseInt(cb.value));
+    if (selectedRooms.length === 0) {
+      showToast('Please select at least 1 room for the group reservation', 'error');
+      return;
+    }
+
+    // Check conflicts for all selected rooms
+    for (const rm of selectedRooms) {
+      const conf = checkDateConflict(rm, checkIn, checkOut);
+      if (conf) {
+        showToast(`Room ${rm} is already booked by "${conf.guestName}" (${conf.checkIn} → ${conf.checkOut}). Please uncheck it or choose different dates.`, 'error');
+        return;
+      }
+    }
+
+    if (selectedRooms.length > 1) {
+      showSpinner();
+      try {
+        const count = selectedRooms.length;
+        const nights = Math.max(1, Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000));
+        const pricePerDay = parseFloat(document.getElementById('bk-priceperday')?.value) || 0;
+
+        const perRoomAdvance = Math.floor((advancePaid / count) * 100) / 100;
+        const remAdvance = Math.round((advancePaid - (perRoomAdvance * count)) * 100) / 100;
+
+        const perRoomDiscount = Math.floor((discountAmount / count) * 100) / 100;
+        const remDiscount = Math.round((discountAmount - (perRoomDiscount * count)) * 100) / 100;
+
+        const baseNextNo = parseInt(await getNextBookingNumber(), 10);
+        const groupBookingId = `GRP-${Date.now()}`;
+        const acVal = document.getElementById('bk-ac-multi')?.value || document.getElementById('bk-ac')?.value || 'AC';
+
+        const createdBookings = [];
+        for (let i = 0; i < count; i++) {
+          const rm = selectedRooms[i];
+          const isFirst = (i === 0);
+          const rmAdvance = perRoomAdvance + (isFirst ? remAdvance : 0);
+          const rmDiscount = perRoomDiscount + (isFirst ? remDiscount : 0);
+          const rmExtras = isFirst ? extraCharges : [];
+          const rmExtrasTotal = isFirst ? extraChargesTotal : 0;
+          const rmServiceTotal = isFirst ? serviceChargeTotal : 0;
+          const rmFullPrice = (pricePerDay * nights) + rmExtrasTotal + rmServiceTotal;
+          const rmRemaining = Math.max(0, rmFullPrice - rmDiscount - rmAdvance);
+          const rmBookingNumber = formatBookingNumber(baseNextNo + i);
+
+          const roomData = {
+            bookingNumber: rmBookingNumber,
+            guestName: name,
+            phone,
+            roomNumber: rm,
+            acType: acVal,
+            bedType: document.getElementById('bk-bed')?.value,
+            meals: document.getElementById('bk-meals')?.value,
+            checkIn,
+            checkOut,
+            pricePerDay,
+            fullPrice: rmFullPrice,
+            advancePaid: rmAdvance,
+            discountAmount: rmDiscount,
+            discountDesc: isFirst ? discountDesc : (discountDesc ? `${discountDesc} (Split)` : ''),
+            remaining: rmRemaining,
+            passportNumber: document.getElementById('bk-passport')?.value?.trim() || '',
+            companyName: document.getElementById('bk-company')?.value?.trim() || '',
+            source: document.getElementById('bk-source')?.value,
+            specialBirthday: document.getElementById('bk-birthday')?.checked || false,
+            birthdayDate: document.getElementById('bk-birthday')?.checked ? (document.getElementById('bk-birthday-date')?.value || '') : '',
+            specialAnniversary: document.getElementById('bk-anniversary')?.checked || false,
+            anniversaryDate: document.getElementById('bk-anniversary')?.checked ? (document.getElementById('bk-anniversary-date')?.value || '') : '',
+            notes: (document.getElementById('bk-notes')?.value?.trim() ? document.getElementById('bk-notes')?.value?.trim() + ' | ' : '') + `Group buyout: ${count} rooms [${selectedRooms.join(', ')}]`,
+            additionalGuests: isFirst ? additionalGuests : [],
+            guestCount: parseInt(document.getElementById('bk-persons')?.value) || 1,
+            extraCharges: rmExtras,
+            extraChargesTotal: rmExtrasTotal,
+            serviceChargeTotal: rmServiceTotal,
+            groupBookingId,
+            groupRooms: selectedRooms,
+            isGroupBooking: true
+          };
+
+          const docRef = await createBooking(roomData);
+          createdBookings.push({
+            ...roomData,
+            id: docRef?.id || null
+          });
+        }
+
+        hideSpinner();
+        closeModal();
+        showToast(`🎉 Group booking confirmed! ${count} rooms booked (${selectedRooms.join(', ')}).`, 'success');
+        if (onSavedCallback) onSavedCallback(createdBookings[0]);
+        if (andPrint) {
+          openConsolidatedPrintBill(createdBookings, { allBookings: _allBookings });
+        }
+        return;
+      } catch (err) {
+        hideSpinner();
+        console.error(err);
+        showToast('Failed to save group booking: ' + err.message, 'error');
+        return;
+      }
+    } else {
+      // Exactly 1 room was selected in multi mode
+      const singleEl = document.getElementById('bk-room');
+      if (singleEl) singleEl.value = String(selectedRooms[0]);
+    }
+  }
+
+  // Final conflict guard (in case UI warning was somehow bypassed)
+  const roomNum = parseInt(document.getElementById('bk-room')?.value);
+  const conflict = checkDateConflict(roomNum, checkIn, checkOut);
+  if (conflict) {
+    showToast(`Room ${roomNum} is already booked by "${conflict.guestName}" (${conflict.checkIn} → ${conflict.checkOut}). Choose different dates or room.`, 'error');
+    updateAvailabilityWarning();
+    return;
+  }
 
   const bookingNumber = document.getElementById('bk-number')?.value || currentBooking?.bookingNumber || '';
 
@@ -817,8 +1295,37 @@ async function saveBooking(andPrint = false) {
   try {
     let savedId = currentBooking?.id;
     if (currentBooking) {
+      const isGroupEdit = Boolean(_relatedGroupBookings?.length > 1 && document.getElementById('bk-sync-group-advance')?.checked);
+      if (isGroupEdit) {
+        const groupCount = _relatedGroupBookings.length;
+        const perRoomAdv = Math.floor((advancePaid / groupCount) * 100) / 100;
+        const remAdv = Math.round((advancePaid - (perRoomAdv * groupCount)) * 100) / 100;
+
+        for (let i = 0; i < groupCount; i++) {
+          const rb = _relatedGroupBookings[i];
+          const roomAdv = perRoomAdv + (i === 0 ? remAdv : 0);
+          const roomFull = Number(rb.fullPrice || 0);
+          const roomDisc = Number(rb.discountAmount || 0);
+          const roomRem = Math.max(0, roomFull - roomDisc - roomAdv);
+
+          if (rb.id === currentBooking.id) {
+            data.advancePaid = roomAdv;
+            data.remaining = roomRem;
+          } else {
+            await updateBooking(rb.id, {
+              advancePaid: roomAdv,
+              remaining: roomRem
+            });
+            rb.advancePaid = roomAdv;
+            rb.remaining = roomRem;
+          }
+        }
+      }
+
       await updateBooking(currentBooking.id, data);
-      showToast('Booking updated successfully! 🎉', 'success');
+      showToast(isGroupEdit
+        ? `Booking updated! Advance of ${formatCurrency(advancePaid)} divided equally across all ${_relatedGroupBookings.length} rooms! 🎉`
+        : 'Booking updated successfully! 🎉', 'success');
     } else {
       const ref = await createBooking(data);
       savedId = ref?.id || null;
@@ -828,7 +1335,7 @@ async function saveBooking(andPrint = false) {
     closeModal();
     if (onSavedCallback) onSavedCallback(data);
     if (andPrint) {
-      openPrintBill({ ...data, id: savedId });
+      openPrintBill({ ...data, id: savedId }, { allBookings: _allBookings });
     }
   } catch (err) {
     hideSpinner();
