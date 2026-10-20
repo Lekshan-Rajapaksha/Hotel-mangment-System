@@ -39,6 +39,7 @@ export function openPrintEmployeeReport(emp, allAttendanceList, allSalaries) {
         <span><strong>Paid:</strong> Rs ${Number(p.totalPaid || 0).toLocaleString()}</span>
       </div>
       <div style="color: #444; margin-top: 0.15rem;"><strong>Period:</strong> ${p.month}/${p.year} (${p.paymentType || 'Salary'})</div>
+      ${(p.note || p.description) ? `<div style="color: #555; margin-top: 0.15rem; font-size: 0.72rem;"><strong>Desc:</strong> ${escapeHtml(p.note || p.description)}</div>` : ''}
     </div>
   `).join('') : '<div style="font-size: 0.75rem; text-align: center; padding: 0.5rem 0;">No past payments found</div>';
 

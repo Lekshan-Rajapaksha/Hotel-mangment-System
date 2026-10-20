@@ -210,10 +210,10 @@ export function openPrintSalaryBill(payment, employee) {
 
               <div class="thermal-divider-dashed"></div>
 
-              <!-- Note (if present) -->
+              <!-- Description (if present) -->
               ${noteText ? `
               <div style="font-size: 0.76rem; text-align: left; padding: 0.4rem 0;">
-                <strong>Note:</strong> ${escapeHtml(noteText)}
+                <strong>Description:</strong> ${escapeHtml(noteText)}
               </div>
               <div class="thermal-divider-dashed"></div>
               ` : ''}
@@ -334,10 +334,10 @@ export function openPrintSalaryBill(payment, employee) {
                 </div>
               </div>
 
-              <!-- Note (if present) -->
+              <!-- Description (if present) -->
               ${noteText ? `
               <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.6rem 0.85rem; margin-bottom: 1.5rem; font-size: 0.88rem; color: #78350f;">
-                <strong style="display: block; margin-bottom: 0.2rem;">📝 Note:</strong>
+                <strong style="display: block; margin-bottom: 0.2rem;">📝 Description:</strong>
                 ${escapeHtml(noteText)}
               </div>
               ` : ''}
@@ -431,7 +431,7 @@ function bindSalaryPrintEvents(p, emp, voucherNo, dateFormatted, timeFormatted, 
       `AMOUNT PAID   : Rs ${paidNow.toLocaleString()}`,
       `REMAINING DUE : Rs ${remaining.toLocaleString()}`,
       `Status        : ${remaining <= 0 ? 'CLEARED / FULLY PAID' : 'BALANCE REMAINING'}`,
-      noteText ? `Note          : ${noteText}` : null,
+      noteText ? `Description   : ${noteText}` : null,
       '========================================',
       'Thank you for your hard work!',
       'Blue Cove Hiriketiya Management'

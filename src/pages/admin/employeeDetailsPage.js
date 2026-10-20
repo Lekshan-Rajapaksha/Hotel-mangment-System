@@ -951,8 +951,8 @@ function openProfileView(emp) {
             </div>
 
             <div style="margin-bottom: 0.6rem;">
-              <label style="font-size: 0.72rem; color: var(--clr-text-muted); display: block; margin-bottom: 0.2rem;">📝 Description / Note (Optional)</label>
-              <textarea class="form-input prof-sal-note" rows="2" placeholder="e.g. Advance payment, festival bonus, cash adjustment…" style="padding: 0.35rem; width: 100%; resize: vertical; font-size: 0.82rem;"></textarea>
+              <label style="font-size: 0.72rem; color: var(--clr-text-muted); display: block; margin-bottom: 0.2rem;">📝 Description (Optional)</label>
+              <input type="text" class="form-input prof-sal-note" placeholder="e.g. Advance payment, festival bonus, cash adjustment…" style="padding: 0.45rem 0.55rem; width: 100%; font-size: 0.85rem;" />
             </div>
 
             <button type="submit" class="btn btn-primary w-full" style="padding: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-weight: 600;">
@@ -1072,7 +1072,7 @@ function loadProfileData(employeeId) {
             <td>
               <strong>${pay.month}/${pay.year}</strong>
               <br><small style="color:var(--clr-text-muted)">${pay.paymentType || 'Salary Payment'}</small>
-              ${(pay.note || pay.description) ? `<div style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:2px; font-style:italic">💬 ${escapeHtml(pay.note || pay.description)}</div>` : ''}
+              ${(pay.note || pay.description) ? `<div style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:2px; font-style:italic">💬 <strong>Desc:</strong> ${escapeHtml(pay.note || pay.description)}</div>` : ''}
             </td>
             <td>
               <strong style="color: #16a34a;">Rs ${Number(pay.totalPaid).toLocaleString()}</strong>
