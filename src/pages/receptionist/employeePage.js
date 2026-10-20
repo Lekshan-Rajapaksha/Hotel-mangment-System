@@ -6,7 +6,8 @@ import {
   paySalary,
   subscribeAllAttendance,
   subscribeAllSalaryPayments,
-  calculateSalaryBreakdown
+  calculateSalaryBreakdown,
+  deleteSalaryPayment
 } from '../../services/employeeService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
 import { openPrintEmployeeReport } from '../../components/printEmployeeReport.js';
@@ -229,6 +230,7 @@ function bindEvents() {
         basic,
         fullDays,
         halfDays,
+        totalAttendanceCount: empAtt.length,
         serviceCharge: sc,
         alreadyPaid
       });
@@ -236,6 +238,7 @@ function bindEvents() {
       const isMidMonth = alreadyPaid > 0 || (payNow < breakdown.totalOwed && breakdown.totalOwed > 0);
       const paymentType = isMidMonth ? 'Mid-Month / Advance Payment' : 'Salary Settlement';
       const remainingAfter = Math.max(0, breakdown.totalOwed - (alreadyPaid + payNow));
+      const description = (document.getElementById('sal-page-input-desc')?.value || '').trim();
 
       const paymentRecord = {
         month,
@@ -252,6 +255,7 @@ function bindEvents() {
         totalPaid: payNow,
         remainingBalance: remainingAfter,
         paymentType,
+        ...(description ? { note: description, description } : {}),
         date: new Date().toISOString()
       };
 
@@ -259,9 +263,11 @@ function bindEvents() {
         const payId = await paySalary(emp.id, paymentRecord);
         showToast('Salary payment recorded! Generating bill...', 'success');
 
-        // Reset manual edit flag
+        // Reset manual edit flag and description
         const payNowInput = document.getElementById('sal-page-input-pay');
         if (payNowInput) payNowInput.dataset.userEdited = 'false';
+        const descInput = document.getElementById('sal-page-input-desc');
+        if (descInput) descInput.value = '';
 
         // Re-render calculations & history
         updatePayPageCalculations();
@@ -296,6 +302,35 @@ function bindEvents() {
       if (paymentRecord) {
         openPrintSalaryBill(paymentRecord, activePayEmployee);
       }
+      return;
+    }
+
+    const delBtn = e.target.closest('.btn-del-sal');
+    if (delBtn && activePayEmployee) {
+      const payId = delBtn.dataset.id;
+      const paymentRecord = allSalaries.find(p => p.id === payId);
+      const paidAmt = paymentRecord ? Number(paymentRecord.totalPaid || 0) : 0;
+      const period = paymentRecord ? `${paymentRecord.month}/${paymentRecord.year}` : '';
+
+      if (confirm(`Are you sure you want to delete this salary payment of Rs ${paidAmt.toLocaleString()}${period ? ` (${period})` : ''} for ${activePayEmployee.name}? This will reverse the payment and restore their pending balance.`)) {
+        delBtn.disabled = true;
+        deleteSalaryPayment(payId)
+          .then(() => {
+            showToast('Salary payment deleted. Balance recalculated.', 'info');
+            allSalaries = allSalaries.filter(p => p.id !== payId);
+            const payNowInput = document.getElementById('sal-page-input-pay');
+            if (payNowInput) payNowInput.dataset.userEdited = 'false';
+            updatePayPageCalculations();
+            renderPayPageHistory();
+            renderEmployeeGrid();
+          })
+          .catch(err => {
+            console.error('Error deleting salary payment:', err);
+            showToast('Failed to delete salary payment.', 'error');
+            delBtn.disabled = false;
+          });
+      }
+      return;
     }
   });
 }
@@ -454,7 +489,7 @@ function openPaySalaryPage(emp) {
             <input type="number" id="sal-page-input-sc" class="form-input" min="0" value="0" style="padding: 0.45rem; font-size: 0.95rem;">
           </div>
 
-          <div style="margin-bottom: 1.25rem;">
+          <div style="margin-bottom: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
               <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: var(--clr-primary); margin: 0;">
                 Amount to Pay Now (Rs)
@@ -465,6 +500,13 @@ function openPaySalaryPage(emp) {
             <small style="color: var(--clr-text-muted); font-size: 0.76rem; display: block; margin-top: 0.3rem;">
               💡 Enter any custom amount to record partial / advance payments at any point in the month.
             </small>
+          </div>
+
+          <div style="margin-bottom: 1.25rem;">
+            <label class="form-label" for="sal-page-input-desc" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">
+              📝 Description / Note (Optional)
+            </label>
+            <textarea id="sal-page-input-desc" class="form-input" rows="2" placeholder="e.g. Advance payment, festival bonus, cash handed over, special reason..." style="padding: 0.5rem; font-size: 0.85rem; resize: vertical; width: 100%;"></textarea>
           </div>
 
           <button type="submit" class="btn btn-primary w-full" style="padding: 0.75rem; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: var(--shadow-sm);">
@@ -526,6 +568,7 @@ function updatePayPageCalculations() {
     basic,
     fullDays,
     halfDays,
+    totalAttendanceCount: empAtt.length,
     serviceCharge: sc,
     alreadyPaid
   });
@@ -571,7 +614,9 @@ function updatePayPageCalculations() {
 
   // Right Column updates
   const earnedDaysSubEl = document.getElementById('sal-page-earned-days-sub');
-  if (earnedDaysSubEl) earnedDaysSubEl.textContent = `${breakdown.effectiveDays}d`;
+  if (earnedDaysSubEl) {
+    earnedDaysSubEl.textContent = empAtt.length > 0 ? `${breakdown.effectiveDays}d` : 'Full Basic';
+  }
 
   const earnedPayEl = document.getElementById('sal-page-earned-pay');
   if (earnedPayEl) earnedPayEl.textContent = `Rs ${breakdown.earnedBasic.toLocaleString()}`;
@@ -636,13 +681,17 @@ function renderPayPageHistory() {
         <td>
           <span style="font-size: 0.8rem; color: var(--clr-text);">${daysCount}</span>
           ${pay.serviceCharge > 0 ? `<br><small style="color: var(--clr-text-muted);">+ SC: Rs ${Number(pay.serviceCharge).toLocaleString()}</small>` : ''}
+          ${(pay.note || pay.description) ? `<div style="font-size: 0.76rem; color: var(--clr-text-muted); margin-top: 2px;">💬 <em>${escapeHtml(pay.note || pay.description)}</em></div>` : ''}
         </td>
         <td style="color: var(--clr-text-muted); font-size: 0.82rem;">
           ${dateFormatted}
         </td>
-        <td style="text-align: right;">
-          <button class="btn btn-sm btn-ghost btn-reprint-sal-bill" data-id="${pay.id}" title="Reprint Salary Bill" style="color: var(--clr-primary); border: 1px solid var(--clr-border); padding: 0.25rem 0.6rem;">
+        <td style="text-align: right; white-space: nowrap;">
+          <button class="btn btn-sm btn-ghost btn-reprint-sal-bill" data-id="${pay.id}" title="Reprint Salary Bill" style="color: var(--clr-primary); border: 1px solid var(--clr-border); padding: 0.25rem 0.6rem; margin-right: 0.25rem;">
             🖨️ Bill
+          </button>
+          <button class="btn btn-sm btn-ghost btn-del-sal" data-id="${pay.id}" title="Delete Payment Record" style="color: #dc2626; border: 1px solid #fca5a5; background: #fef2f2; padding: 0.25rem 0.55rem; font-weight: 600;">
+            🗑️ Delete
           </button>
         </td>
       </tr>
@@ -718,7 +767,12 @@ function renderEmployeeGrid() {
     const fullDays = empAttThisMonth.filter(a => a.status === 'Full Day').length;
     const halfDays = empAttThisMonth.filter(a => a.status === 'Half Day').length;
     const effectiveDays = fullDays + (halfDays * 0.5);
-    const earnedThisMonth = Math.round(effectiveDays * (basic / 26));
+    let earnedThisMonth = 0;
+    if (empAttThisMonth.length > 0 || effectiveDays > 0) {
+      earnedThisMonth = Math.round(effectiveDays * (basic / 26));
+    } else {
+      earnedThisMonth = basic;
+    }
 
     const paidThisMonth = allSalaries
       .filter(p => p.employeeId === emp.id && String(p.month).padStart(2, '0') === currentMonthStr && String(p.year) === currentYearStr)
@@ -756,7 +810,7 @@ function renderEmployeeGrid() {
         <!-- Current Month Summary -->
         <div style="margin-top: 0.6rem; background: var(--clr-surface-alt, #f8fafc); border: 1px solid var(--clr-border); border-radius: 6px; padding: 0.5rem; font-size: 0.76rem;">
           <div style="display:flex; justify-content:space-between; margin-bottom: 0.2rem;">
-            <span style="color:var(--clr-text-muted);">This Month (${effectiveDays}d worked):</span>
+            <span style="color:var(--clr-text-muted);">${empAttThisMonth.length > 0 ? `This Month (${effectiveDays}d worked):` : 'This Month (Full Basic):'}</span>
             <strong>Rs ${earnedThisMonth.toLocaleString()}</strong>
           </div>
           <div style="display:flex; justify-content:space-between;">

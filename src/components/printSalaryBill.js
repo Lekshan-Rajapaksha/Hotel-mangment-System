@@ -35,7 +35,7 @@ export function openPrintSalaryBill(payment, employee) {
 
   const isMidMonth = previouslyPaid > 0 || (paidNow < totalGross && totalGross > 0);
   const paymentTypeLabel = p.paymentType || (isMidMonth ? 'Mid-Month / Advance Payment' : 'Salary Settlement');
-  const noteText = (p.note || '').trim();
+  const noteText = (p.note || p.description || '').trim();
 
   // Remove existing overlay if any
   document.querySelector('#print-bill-overlay')?.remove();

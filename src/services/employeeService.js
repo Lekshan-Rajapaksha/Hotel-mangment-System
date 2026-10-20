@@ -182,13 +182,22 @@ export function subscribeAttendanceByMonth(monthStr, callback) {
 // --- Salary Payments ---
 
 // Calculate salary breakdown based on Basic ÷ 26 per day (Half Day = 0.5 * dailyRate)
-export function calculateSalaryBreakdown({ basic, fullDays = 0, halfDays = 0, serviceCharge = 0, alreadyPaid = 0 }) {
+// If attendance has been logged (totalAttendanceCount > 0 or effectiveDays > 0), calculate earnedBasic based on worked days.
+// If NO attendance records exist for this period at all, default earnedBasic to the full monthly basic salary.
+export function calculateSalaryBreakdown({ basic, fullDays = 0, halfDays = 0, totalAttendanceCount = 0, serviceCharge = 0, alreadyPaid = 0 }) {
   const basicSalary = Number(basic) || 0;
   const dailyRate = Math.round((basicSalary / 26) * 100) / 100;
   const fDays = Number(fullDays) || 0;
   const hDays = Number(halfDays) || 0;
   const effectiveDays = fDays + (hDays * 0.5);
-  const earnedBasic = Math.round(effectiveDays * (basicSalary / 26));
+
+  let earnedBasic = 0;
+  if (totalAttendanceCount > 0 || effectiveDays > 0) {
+    earnedBasic = Math.round(effectiveDays * (basicSalary / 26));
+  } else {
+    earnedBasic = basicSalary;
+  }
+
   const sc = Number(serviceCharge) || 0;
   const totalOwed = Math.round(earnedBasic + sc);
   const paid = Number(alreadyPaid) || 0;
