@@ -503,10 +503,10 @@ function openPaySalaryPage(emp) {
           </div>
 
           <div style="margin-bottom: 1.25rem;">
-            <label class="form-label" for="sal-page-input-desc" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">
-              📝 Description / Note (Optional)
+            <label class="form-label" for="sal-page-input-desc" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">
+              📝 Description (Optional)
             </label>
-            <textarea id="sal-page-input-desc" class="form-input" rows="2" placeholder="e.g. Advance payment, festival bonus, cash handed over, special reason..." style="padding: 0.5rem; font-size: 0.85rem; resize: vertical; width: 100%;"></textarea>
+            <input type="text" id="sal-page-input-desc" class="form-input" placeholder="e.g. Advance payment, festival bonus, cash handed over, special reason..." style="padding: 0.55rem 0.75rem; font-size: 0.9rem; width: 100%;" />
           </div>
 
           <button type="submit" class="btn btn-primary w-full" style="padding: 0.75rem; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: var(--shadow-sm);">
@@ -681,7 +681,7 @@ function renderPayPageHistory() {
         <td>
           <span style="font-size: 0.8rem; color: var(--clr-text);">${daysCount}</span>
           ${pay.serviceCharge > 0 ? `<br><small style="color: var(--clr-text-muted);">+ SC: Rs ${Number(pay.serviceCharge).toLocaleString()}</small>` : ''}
-          ${(pay.note || pay.description) ? `<div style="font-size: 0.76rem; color: var(--clr-text-muted); margin-top: 2px;">💬 <em>${escapeHtml(pay.note || pay.description)}</em></div>` : ''}
+          ${(pay.note || pay.description) ? `<div style="font-size: 0.76rem; color: var(--clr-text-muted); margin-top: 2px;">💬 <strong>Desc:</strong> <em>${escapeHtml(pay.note || pay.description)}</em></div>` : ''}
         </td>
         <td style="color: var(--clr-text-muted); font-size: 0.82rem;">
           ${dateFormatted}
