@@ -1,10 +1,11 @@
 // src/pages/admin/analyticsPage.js — Admin analytics with profit, income, expenses & payroll summary
 import { subscribeAllBookings } from '../../services/bookingService.js';
 import { subscribeUtilityBills } from '../../services/utilityBillService.js';
-import { subscribeAllSalaryPayments, subscribeEmployees } from '../../services/employeeService.js';
+import { subscribeAllSalaryPayments, subscribeEmployees, deleteSalaryPayment } from '../../services/employeeService.js';
 import { subscribeCommissions } from '../../services/commissionService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
 import { formatCurrency, formatDate, nightCount, MONTHS } from '../../utils/dateHelpers.js';
+import { showToast } from '../../utils/toast.js';
 import Chart from 'chart.js/auto';
 
 let charts = {};
@@ -21,6 +22,15 @@ let allEmployees = [];
 let allCommissions = [];
 
 let activeExpenseTab = 'payroll'; // 'payroll' | 'bills' | 'all'
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 export function renderAnalyticsPage(container) {
   const currentYear = new Date().getFullYear();
@@ -828,13 +838,17 @@ function renderExpenseSummarySection({
               <span class="badge ${p.paymentType?.includes('Advance') ? 'badge-accent' : 'badge-success'}">
                 ${p.paymentType || 'Salary Settlement'}
               </span>
+              ${(p.note || p.description) ? `<div style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:3px; font-style:italic">💬 ${escapeHtml(p.note || p.description)}</div>` : ''}
             </td>
             <td data-label="Amount Paid" style="font-weight:700; color:var(--clr-success)">
               ${formatCurrency(amount)}
             </td>
-            <td data-label="Actions">
-              <button class="btn btn-secondary btn-sm print-salary-btn" data-pay-id="${p.id}" title="Print Slip" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:0.75rem">
+            <td data-label="Actions" style="white-space: nowrap;">
+              <button class="btn btn-secondary btn-sm print-salary-btn" data-pay-id="${p.id}" title="Print Slip" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:0.75rem; margin-right: 4px;">
                 🖨️ Slip
+              </button>
+              <button class="btn btn-danger btn-sm del-salary-btn" data-pay-id="${p.id}" title="Delete Payment Record" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:0.75rem; background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:600;">
+                🗑️ Delete
               </button>
             </td>
           </tr>
@@ -1129,6 +1143,36 @@ function renderExpenseSummarySection({
         role: 'Staff'
       };
       openPrintSalaryBill(payment, emp);
+    });
+  });
+
+  // Bind delete voucher buttons in the salary log
+  document.querySelectorAll('.del-salary-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const payId = btn.dataset.payId;
+      const payment = salaries.find(p => p.id === payId);
+      if (!payment) return;
+      const emp = empMap[payment.employeeId] || {
+        name: payment.employeeName || 'Staff Member',
+        role: 'Staff'
+      };
+      const amount = Number(payment.totalPaid || payment.amount || 0);
+      const period = payment.month && payment.year ? ` (${payment.month}/${payment.year})` : '';
+
+      if (confirm(`Are you sure you want to delete this salary payment of Rs ${amount.toLocaleString()}${period} for ${emp.name}? This will reverse the payment and restore their pending balance.`)) {
+        try {
+          btn.disabled = true;
+          await deleteSalaryPayment(payId);
+          allSalaryPayments = allSalaryPayments.filter(p => p.id !== payId);
+          showToast('Salary payment deleted. Payroll recalculated.', 'info');
+          refreshData();
+        } catch (err) {
+          console.error('Error deleting salary payment:', err);
+          showToast('Failed to delete salary payment.', 'error');
+          btn.disabled = false;
+        }
+      }
     });
   });
 }
