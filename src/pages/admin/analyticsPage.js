@@ -692,7 +692,7 @@ function updateFinancialCards({
   const bksSub = document.getElementById('stat-bookings-sub');
   if (bksEl) bksEl.textContent = bookingsCount;
   if (bksSub) {
-    const paidCount = bookings.filter(b => !b.remaining || b.remaining <= 0).length;
+    const paidCount = bookings.filter(b => Math.max(0, (Number(b.fullPrice)||0) - (Number(b.discountAmount)||0) - (Number(b.advancePaid)||0)) <= 0).length;
     bksSub.textContent = `${paidCount} fully paid · ${bookingsCount - paidCount} with balance`;
   }
 
@@ -1183,9 +1183,7 @@ function updateCashFlowSummary(bookings, bills, salaries, commissions = 0, profi
 
   const totalAdvance = bookings.reduce((s, b) => s + Number(b.advancePaid || 0), 0);
   const totalRemaining = bookings.reduce((s, b) => {
-    const rem = b.remaining !== undefined && b.remaining !== null
-      ? Number(b.remaining)
-      : Math.max(0, Number(b.fullPrice || 0) - Number(b.advancePaid || 0));
+    const rem = Math.max(0, Number(b.fullPrice || 0) - Number(b.discountAmount || 0) - Number(b.advancePaid || 0));
     return s + rem;
   }, 0);
 

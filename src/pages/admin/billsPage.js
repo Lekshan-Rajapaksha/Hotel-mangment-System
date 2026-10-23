@@ -99,8 +99,8 @@ export function renderBillsPage(container) {
 
 function updateSummary(active) {
   const totalRev = active.reduce((s,b) => s + (b.fullPrice||0), 0);
-  const totalRem = active.reduce((s,b) => s + (b.remaining ?? Math.max(0, (b.fullPrice||0)-(b.advancePaid||0))), 0);
-  const fullyPaid = active.filter(b => (b.remaining ?? 1) <= 0).length;
+  const totalRem = active.reduce((s,b) => s + Math.max(0, (Number(b.fullPrice)||0) - (Number(b.discountAmount)||0) - (Number(b.advancePaid)||0)), 0);
+  const fullyPaid = active.filter(b => Math.max(0, (Number(b.fullPrice)||0) - (Number(b.discountAmount)||0) - (Number(b.advancePaid)||0)) <= 0).length;
 
   const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
   el('bs-revenue', formatCurrency(totalRev));
@@ -149,7 +149,7 @@ function renderTable(bookings) {
 
   bookings.forEach((b, i) => {
     const nights = nightCount(b.checkIn, b.checkOut);
-    const rem = b.remaining ?? ((b.fullPrice||0) - (b.advancePaid||0));
+    const rem = Math.max(0, (Number(b.fullPrice)||0) - (Number(b.discountAmount)||0) - (Number(b.advancePaid)||0));
     const billNo = b.bookingNumber ? `#${b.bookingNumber}` : `BCH-${String(b.id || i).slice(-6).toUpperCase()}`;
     const isCancelled = b.status === 'cancelled';
 
