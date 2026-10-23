@@ -939,12 +939,6 @@ function updateRemaining() {
   const full = parseFloat(document.getElementById('bk-fullprice')?.value) || 0;
   const adv  = parseFloat(document.getElementById('bk-advance')?.value) || 0;
   const disc = parseFloat(document.getElementById('bk-discount')?.value) || 0;
-  const rem = Math.max(0, full - disc - adv);
-  const el = document.getElementById('bk-remaining');
-  if (el) {
-    el.textContent = formatCurrency(rem);
-    el.style.color = rem <= 0 ? 'var(--clr-success)' : 'var(--clr-accent)';
-  }
 
   // Update Advance Division helper banner
   const isMulti = !currentBooking && !!document.getElementById('bk-mode-multi')?.checked;
@@ -961,6 +955,14 @@ function updateRemaining() {
   } else if (isGroupEdit) {
     roomCount = _relatedGroupBookings.length;
     roomNumbers = _relatedGroupBookings.map(r => r.roomNumber).sort((a,b)=>Number(a)-Number(b));
+  }
+
+  const thisRoomAdv = (isGroupEdit && roomCount > 1) ? Math.floor((adv / roomCount) * 100) / 100 : adv;
+  const rem = Math.max(0, full - disc - thisRoomAdv);
+  const el = document.getElementById('bk-remaining');
+  if (el) {
+    el.textContent = formatCurrency(rem);
+    el.style.color = rem <= 0 ? 'var(--clr-success)' : 'var(--clr-accent)';
   }
 
   if (banner && textEl) {
@@ -1271,7 +1273,7 @@ async function saveBooking(andPrint = false) {
     advancePaid,
     discountAmount,
     discountDesc,
-    remaining: fullPrice - discountAmount - advancePaid,
+    remaining: Math.max(0, fullPrice - discountAmount - advancePaid),
     passportNumber: document.getElementById('bk-passport')?.value?.trim() || '',
     companyName: document.getElementById('bk-company')?.value?.trim() || '',
     source: document.getElementById('bk-source')?.value,
@@ -1303,14 +1305,19 @@ async function saveBooking(andPrint = false) {
 
         for (let i = 0; i < groupCount; i++) {
           const rb = _relatedGroupBookings[i];
+          const isCurrent = (rb.id === currentBooking.id);
           const roomAdv = perRoomAdv + (i === 0 ? remAdv : 0);
-          const roomFull = Number(rb.fullPrice || 0);
-          const roomDisc = Number(rb.discountAmount || 0);
+          const roomFull = isCurrent ? fullPrice : Number(rb.fullPrice || 0);
+          const roomDisc = isCurrent ? discountAmount : Number(rb.discountAmount || 0);
           const roomRem = Math.max(0, roomFull - roomDisc - roomAdv);
 
-          if (rb.id === currentBooking.id) {
+          if (isCurrent) {
             data.advancePaid = roomAdv;
             data.remaining = roomRem;
+            rb.fullPrice = roomFull;
+            rb.discountAmount = roomDisc;
+            rb.advancePaid = roomAdv;
+            rb.remaining = roomRem;
           } else {
             await updateBooking(rb.id, {
               advancePaid: roomAdv,

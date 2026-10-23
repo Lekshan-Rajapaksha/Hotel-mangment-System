@@ -54,7 +54,7 @@ export function openConsolidatedPrintBill(bookings, options = {}) {
     const discount = Number(b.discountAmount || 0);
     const advance = Number(b.advancePaid || 0);
     const guests = getBookingGuestCount(b);
-    const remaining = b.remaining !== undefined ? Number(b.remaining) : Math.max(0, full - discount - advance);
+    const remaining = Math.max(0, full - discount - advance);
 
     totalRoomCharges += roomCharge;
     totalExtraCharges += extraTotal;

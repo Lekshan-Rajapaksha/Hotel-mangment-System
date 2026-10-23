@@ -476,7 +476,7 @@ function showAdminBookingModal(booking) {
             ${infoRow('Source', escapeHtml(booking.source || 'Direct'))}
             ${infoRow('Full Price', `LKR ${Number(booking.fullPrice||0).toLocaleString()}`)}
             ${infoRow('Advance', `LKR ${Number(booking.advancePaid||0).toLocaleString()}`)}
-            ${infoRow('Remaining', `LKR ${Number(booking.remaining||0).toLocaleString()}`)}
+            ${infoRow('Remaining', `LKR ${Math.max(0, (Number(booking.fullPrice)||0) - (Number(booking.discountAmount)||0) - (Number(booking.advancePaid)||0)).toLocaleString()}`)}
             ${booking.specialBirthday ? infoRow('🎂 Birthday', booking.birthdayDate ? new Date(booking.birthdayDate).toLocaleDateString('en-LK', {day:'numeric',month:'long',year:'numeric'}) : 'Date not set') : ''}
             ${booking.specialAnniversary ? infoRow('💑 Anniversary', booking.anniversaryDate ? new Date(booking.anniversaryDate).toLocaleDateString('en-LK', {day:'numeric',month:'long',year:'numeric'}) : 'Date not set') : ''}
             ${booking.passportNumber ? infoRow('Passport', escapeHtml(booking.passportNumber)) : ''}

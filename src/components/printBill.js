@@ -30,7 +30,7 @@ export function openPrintBill(booking, allBookings = []) {
 
   const discount = Number(b.discountAmount || 0);
   const advance = Number(b.advancePaid || 0);
-  const balance = b.remaining !== undefined ? Number(b.remaining) : Math.max(0, totalPrice - discount - advance);
+  const balance = Math.max(0, totalPrice - discount - advance);
   const isPaid = balance <= 0;
 
   // Auto-detect other active bookings for the same guest on overlapping dates

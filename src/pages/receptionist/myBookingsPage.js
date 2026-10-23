@@ -146,7 +146,7 @@ function renderTable(bookings) {
 
   tbody.innerHTML = bookings.map(b => {
     const nights = nightCount(b.checkIn, b.checkOut);
-    const rem = b.remaining ?? (b.fullPrice - (b.advancePaid || 0));
+    const rem = Math.max(0, (Number(b.fullPrice) || 0) - (Number(b.discountAmount) || 0) - (Number(b.advancePaid) || 0));
     const remColor = rem <= 0 ? 'var(--clr-success)' : 'var(--clr-accent)';
     const guestCount = getBookingGuestCount(b);
     const extraGuestNames = (b.additionalGuests || []).map(g => g.name).filter(Boolean).join(' ');
