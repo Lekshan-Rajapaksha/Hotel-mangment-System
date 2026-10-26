@@ -2,6 +2,7 @@
 import { createBooking, updateBooking, getNextBookingNumber, formatBookingNumber } from '../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../utils/toast.js';
 import { toDateStr, formatCurrency } from '../utils/dateHelpers.js';
+import { calculateGroupAdvanceDistribution } from '../utils/billingHelpers.js';
 import { openPrintBill, openConsolidatedPrintBill } from './printBill.js';
 import { getPrices, DEFAULT_PRICES } from '../services/priceService.js';
 
@@ -327,7 +328,7 @@ export async function openBookingModal(opts = {}) {
               <label style="display:flex; align-items:center; gap:10px; cursor:pointer; background:var(--clr-surface); padding:8px 12px; border-radius:6px; border:1px solid var(--clr-border); user-select:none">
                 <input type="checkbox" id="bk-sync-group-advance" checked style="accent-color:var(--clr-primary); width:18px; height:18px; cursor:pointer" />
                 <span style="font-size:0.82rem; font-weight:600; color:var(--clr-text)">
-                  💰 Edit Advance for ALL ${_relatedGroupBookings.length} Rooms (will divide equally)
+                  💰 Update Advance for ALL ${_relatedGroupBookings.length} Rooms (distributed proportionally)
                 </span>
               </label>
             </div>
@@ -957,26 +958,48 @@ function updateRemaining() {
     roomNumbers = _relatedGroupBookings.map(r => r.roomNumber).sort((a,b)=>Number(a)-Number(b));
   }
 
-  const thisRoomAdv = (isGroupEdit && roomCount > 1) ? Math.floor((adv / roomCount) * 100) / 100 : adv;
-  const rem = Math.max(0, full - disc - thisRoomAdv);
+  let thisRoomAdv = adv;
+  let thisRoomRem = Math.max(0, full - disc - adv);
+  let totalGroupRem = thisRoomRem;
+
+  if (isGroupEdit && roomCount > 1) {
+    const groupForDist = _relatedGroupBookings.map(rb => {
+      const isCur = (rb.id === currentBooking?.id);
+      return {
+        ...rb,
+        fullPrice: isCur ? full : Number(rb.fullPrice || 0),
+        discountAmount: isCur ? disc : Number(rb.discountAmount || 0),
+      };
+    });
+    const dist = calculateGroupAdvanceDistribution(groupForDist, adv, 'proportional');
+    const curDist = dist.find(d => d.booking.id === currentBooking?.id);
+    if (curDist) {
+      thisRoomAdv = curDist.advance;
+      thisRoomRem = curDist.remaining;
+    }
+    totalGroupRem = dist.reduce((s, d) => s + d.remaining, 0);
+  } else if (isMulti && roomCount > 1) {
+    thisRoomAdv = Math.floor((adv / roomCount) * 100) / 100;
+    thisRoomRem = Math.max(0, full - disc - thisRoomAdv);
+    totalGroupRem = thisRoomRem * roomCount;
+  }
+
   const el = document.getElementById('bk-remaining');
   if (el) {
-    el.textContent = formatCurrency(rem);
-    el.style.color = rem <= 0 ? 'var(--clr-success)' : 'var(--clr-accent)';
+    el.textContent = formatCurrency(thisRoomRem);
+    el.style.color = thisRoomRem <= 0 ? 'var(--clr-success)' : 'var(--clr-accent)';
   }
 
   if (banner && textEl) {
     if ((isMulti || isGroupEdit) && roomCount > 1) {
       banner.style.display = 'block';
-      const perRoomAdv = Math.floor((adv / roomCount) * 100) / 100;
-      const perRoomRem = Math.round((rem / roomCount) * 100) / 100;
       textEl.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px">
-          <span>⚡ <strong>Advance Split:</strong> ${formatCurrency(adv)} ÷ ${roomCount} rooms = <span style="color:var(--clr-success); font-weight:700">${formatCurrency(perRoomAdv)}</span> / room</span>
+          <span>⚡ <strong>Total Advance:</strong> ${formatCurrency(adv)} across ${roomCount} rooms · This room: <span style="color:var(--clr-success); font-weight:700">${formatCurrency(thisRoomAdv)}</span></span>
           <span style="font-size:0.75rem; color:var(--clr-text-muted)">Rooms: [${roomNumbers.join(', ')}]</span>
         </div>
         <div style="font-size:0.75rem; color:var(--clr-text-muted); margin-top:3px">
-          Balance remaining per room: <strong>${formatCurrency(perRoomRem)}</strong> (Total balance: ${formatCurrency(rem)})
+          This room remaining: <strong>${formatCurrency(thisRoomRem)}</strong> (Total group balance due: <strong>${formatCurrency(totalGroupRem)}</strong>)
         </div>
       `;
     } else {
@@ -1162,9 +1185,6 @@ async function saveBooking(andPrint = false) {
         const nights = Math.max(1, Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000));
         const pricePerDay = parseFloat(document.getElementById('bk-priceperday')?.value) || 0;
 
-        const perRoomAdvance = Math.floor((advancePaid / count) * 100) / 100;
-        const remAdvance = Math.round((advancePaid - (perRoomAdvance * count)) * 100) / 100;
-
         const perRoomDiscount = Math.floor((discountAmount / count) * 100) / 100;
         const remDiscount = Math.round((discountAmount - (perRoomDiscount * count)) * 100) / 100;
 
@@ -1172,17 +1192,33 @@ async function saveBooking(andPrint = false) {
         const groupBookingId = `GRP-${Date.now()}`;
         const acVal = document.getElementById('bk-ac-multi')?.value || document.getElementById('bk-ac')?.value || 'AC';
 
-        const createdBookings = [];
+        // Pre-compute room bills to distribute advance proportionally
+        const roomsToPrep = [];
         for (let i = 0; i < count; i++) {
-          const rm = selectedRooms[i];
           const isFirst = (i === 0);
-          const rmAdvance = perRoomAdvance + (isFirst ? remAdvance : 0);
           const rmDiscount = perRoomDiscount + (isFirst ? remDiscount : 0);
           const rmExtras = isFirst ? extraCharges : [];
           const rmExtrasTotal = isFirst ? extraChargesTotal : 0;
           const rmServiceTotal = isFirst ? serviceChargeTotal : 0;
           const rmFullPrice = (pricePerDay * nights) + rmExtrasTotal + rmServiceTotal;
-          const rmRemaining = Math.max(0, rmFullPrice - rmDiscount - rmAdvance);
+          roomsToPrep.push({
+            fullPrice: rmFullPrice,
+            discountAmount: rmDiscount
+          });
+        }
+        const dist = calculateGroupAdvanceDistribution(roomsToPrep, advancePaid, 'proportional');
+
+        const createdBookings = [];
+        for (let i = 0; i < count; i++) {
+          const rm = selectedRooms[i];
+          const isFirst = (i === 0);
+          const rmAdvance = dist[i].advance;
+          const rmDiscount = perRoomDiscount + (isFirst ? remDiscount : 0);
+          const rmExtras = isFirst ? extraCharges : [];
+          const rmExtrasTotal = isFirst ? extraChargesTotal : 0;
+          const rmServiceTotal = isFirst ? serviceChargeTotal : 0;
+          const rmFullPrice = roomsToPrep[i].fullPrice;
+          const rmRemaining = dist[i].remaining;
           const rmBookingNumber = formatBookingNumber(baseNextNo + i);
 
           const roomData = {
@@ -1299,39 +1335,41 @@ async function saveBooking(andPrint = false) {
     if (currentBooking) {
       const isGroupEdit = Boolean(_relatedGroupBookings?.length > 1 && document.getElementById('bk-sync-group-advance')?.checked);
       if (isGroupEdit) {
-        const groupCount = _relatedGroupBookings.length;
-        const perRoomAdv = Math.floor((advancePaid / groupCount) * 100) / 100;
-        const remAdv = Math.round((advancePaid - (perRoomAdv * groupCount)) * 100) / 100;
+        const groupForDist = _relatedGroupBookings.map(rb => {
+          const isCurrent = (rb.id === currentBooking.id);
+          return {
+            ...rb,
+            fullPrice: isCurrent ? fullPrice : Number(rb.fullPrice || 0),
+            discountAmount: isCurrent ? discountAmount : Number(rb.discountAmount || 0),
+          };
+        });
 
-        for (let i = 0; i < groupCount; i++) {
+        const dist = calculateGroupAdvanceDistribution(groupForDist, advancePaid, 'proportional');
+        for (let i = 0; i < dist.length; i++) {
+          const d = dist[i];
           const rb = _relatedGroupBookings[i];
           const isCurrent = (rb.id === currentBooking.id);
-          const roomAdv = perRoomAdv + (i === 0 ? remAdv : 0);
-          const roomFull = isCurrent ? fullPrice : Number(rb.fullPrice || 0);
-          const roomDisc = isCurrent ? discountAmount : Number(rb.discountAmount || 0);
-          const roomRem = Math.max(0, roomFull - roomDisc - roomAdv);
-
           if (isCurrent) {
-            data.advancePaid = roomAdv;
-            data.remaining = roomRem;
-            rb.fullPrice = roomFull;
-            rb.discountAmount = roomDisc;
-            rb.advancePaid = roomAdv;
-            rb.remaining = roomRem;
+            data.advancePaid = d.advance;
+            data.remaining = d.remaining;
+            rb.fullPrice = fullPrice;
+            rb.discountAmount = discountAmount;
+            rb.advancePaid = d.advance;
+            rb.remaining = d.remaining;
           } else {
             await updateBooking(rb.id, {
-              advancePaid: roomAdv,
-              remaining: roomRem
+              advancePaid: d.advance,
+              remaining: d.remaining
             });
-            rb.advancePaid = roomAdv;
-            rb.remaining = roomRem;
+            rb.advancePaid = d.advance;
+            rb.remaining = d.remaining;
           }
         }
       }
 
       await updateBooking(currentBooking.id, data);
       showToast(isGroupEdit
-        ? `Booking updated! Advance of ${formatCurrency(advancePaid)} divided equally across all ${_relatedGroupBookings.length} rooms! 🎉`
+        ? `Booking updated! Total advance of ${formatCurrency(advancePaid)} distributed proportionally across all ${_relatedGroupBookings.length} rooms! 🎉`
         : 'Booking updated successfully! 🎉', 'success');
     } else {
       const ref = await createBooking(data);

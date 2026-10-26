@@ -61,8 +61,8 @@ export function renderMyBookingsPage(container) {
           🏨 <span id="bulk-selected-count" style="color:var(--clr-primary)">0</span> bookings selected
         </div>
         <div class="flex gap-2 items-center">
-          <button class="btn btn-outline btn-sm" id="bulk-edit-advance-btn" style="display:inline-flex; align-items:center; gap:6px">
-            💰 Edit Advance (Divide Equally)
+          <button class="btn btn-outline btn-sm" id="bulk-edit-advance-btn" style="display:inline-flex; align-items:center; gap:6px" title="Edit and distribute advance payments proportionally, sequentially, or equally">
+            💰 Edit Group Payment / Advance
           </button>
           <button class="btn btn-primary btn-sm" id="bulk-print-combined-btn" style="display:inline-flex; align-items:center; gap:6px">
             🖨️ Print Combined Bill
