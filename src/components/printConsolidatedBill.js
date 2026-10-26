@@ -3,6 +3,7 @@ import { formatCurrency, formatDate, nightCount, getBookingGuestCount } from '..
 import logoImg from '../assets/Blue cove hiriketiya (1).png';
 import { showToast } from '../utils/toast.js';
 import { updateBooking } from '../services/bookingService.js';
+import { calculateGroupAdvanceDistribution } from '../utils/billingHelpers.js';
 import html2pdf from 'html2pdf.js';
 
 let currentMode = 'thermal'; // 'thermal' (80mm) | 'a4'
@@ -637,65 +638,128 @@ export function openConsolidatedPrintBill(bookings, options = {}) {
 }
 
 /**
- * Quick Modal to update or edit total advance payment for multiple selected rooms,
- * dividing it equally among them in Firestore.
+ * Modal to view and edit advance payment distribution across multiple selected rooms,
+ * supporting proportional fair split, sequential waterfall, capped equal split, or custom manual amounts.
  */
 export function openEditGroupAdvanceModal(bookings, onUpdated = () => {}) {
   if (!bookings || !bookings.length) return;
 
   const count = bookings.length;
-  const currentTotalAdv = bookings.reduce((sum, b) => sum + (Number(b.advancePaid) || 0), 0);
-  const totalFullPrice = bookings.reduce((sum, b) => sum + (Number(b.fullPrice) || 0), 0);
-  const totalDiscount = bookings.reduce((sum, b) => sum + (Number(b.discountAmount) || 0), 0);
+  const currentTotalAdv = Math.round(bookings.reduce((sum, b) => sum + (Number(b.advancePaid) || 0), 0) * 100) / 100;
+  const totalFullPrice = Math.round(bookings.reduce((sum, b) => sum + (Number(b.fullPrice) || 0), 0) * 100) / 100;
+  const totalDiscount = Math.round(bookings.reduce((sum, b) => sum + (Number(b.discountAmount) || 0), 0) * 100) / 100;
+  const totalNetBill = Math.max(0, Math.round((totalFullPrice - totalDiscount) * 100) / 100);
   const roomNumbers = bookings.map(b => b.roomNumber).sort((a,b)=>Number(a)-Number(b));
 
   document.querySelector('#edit-group-adv-overlay')?.remove();
 
+  let activeMode = 'proportional'; // 'proportional' | 'sequential' | 'equal_capped' | 'custom'
+  let currentVal = currentTotalAdv;
+  let allocations = calculateGroupAdvanceDistribution(bookings, currentVal, activeMode);
+
   const modalHtml = `
     <div class="modal-overlay" id="edit-group-adv-overlay" style="z-index:1200">
-      <div class="modal" style="max-width:440px">
-        <div class="modal-header">
-          <h2 class="modal-title" style="display:flex;align-items:center;gap:8px">
-            💰 Edit Group Advance Payment
+      <div class="modal" style="max-width:580px; width:95%; max-height:92vh; display:flex; flex-direction:column">
+        <div class="modal-header" style="padding:14px 18px; border-bottom:1px solid var(--clr-border)">
+          <h2 class="modal-title" style="display:flex;align-items:center;gap:8px;font-size:1.05rem">
+            💰 Group Payment &amp; Advance Distribution
           </h2>
           <button class="modal-close" id="edit-group-adv-close">✕</button>
         </div>
-        <div class="modal-body" style="padding:20px">
-          <div style="background:var(--clr-surface-alt, rgba(255,255,255,0.03)); border:1px solid var(--clr-border); border-radius:8px; padding:12px; margin-bottom:16px">
-            <div style="display:flex; justify-content:space-between; margin-bottom:6px">
-              <span style="font-size:0.82rem; color:var(--clr-text-muted)">Selected Rooms (${count}):</span>
-              <span style="font-size:0.82rem; font-weight:700; color:var(--clr-text)">[${roomNumbers.join(', ')}]</span>
+
+        <div class="modal-body" style="padding:16px 18px; overflow-y:auto; flex:1">
+          <!-- Top info summary -->
+          <div style="background:var(--clr-surface-alt, rgba(255,255,255,0.03)); border:1px solid var(--clr-border); border-radius:8px; padding:10px 14px; margin-bottom:14px">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.82rem">
+              <span style="color:var(--clr-text-muted)">Selected Bookings (${count} Rooms):</span>
+              <span style="font-weight:700; color:var(--clr-text)">[${roomNumbers.map(r => `Room ${r}`).join(', ')}]</span>
             </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:6px">
-              <span style="font-size:0.82rem; color:var(--clr-text-muted)">Total Full Bill:</span>
-              <span style="font-size:0.82rem; font-weight:700; color:var(--clr-primary)">${formatCurrency(totalFullPrice - totalDiscount)}</span>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.82rem">
+              <span style="color:var(--clr-text-muted)">Combined Net Bill:</span>
+              <span style="font-weight:700; color:var(--clr-primary)">${formatCurrency(totalNetBill)}</span>
             </div>
-            <div style="display:flex; justify-content:space-between">
-              <span style="font-size:0.82rem; color:var(--clr-text-muted)">Current Total Advance:</span>
-              <span style="font-size:0.82rem; font-weight:700; color:var(--clr-text)">${formatCurrency(currentTotalAdv)}</span>
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem">
+              <span style="color:var(--clr-text-muted)">Current Total Advance on Record:</span>
+              <span style="font-weight:700; color:var(--clr-text)">${formatCurrency(currentTotalAdv)}</span>
             </div>
           </div>
 
-          <div class="form-group" style="margin-bottom:14px">
-            <label class="form-label" for="group-adv-input" style="font-weight:700">Total Advance Paid by Buyer (LKR) *</label>
+          <!-- Total Advance Input & Quick Actions -->
+          <div class="form-group" style="margin-bottom:12px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:4px">
+              <label class="form-label" for="group-adv-input" style="font-weight:700; margin:0">Total Payment / Advance Paid (LKR) *</label>
+              <div class="flex gap-1">
+                ${currentTotalAdv > 0 ? `
+                <button type="button" id="btn-rebalance-adv" class="btn btn-ghost btn-sm" style="font-size:0.75rem; padding:2px 8px; color:var(--clr-primary); border:1px dashed var(--clr-primary)" title="Rebalance current advance proportionally to eliminate trapped overpayments">
+                  🔄 Rebalance Current (${formatCurrency(currentTotalAdv)})
+                </button>` : ''}
+                <button type="button" id="btn-pay-full" class="btn btn-ghost btn-sm" style="font-size:0.75rem; padding:2px 8px; color:var(--clr-success); border:1px dashed var(--clr-success)" title="Set advance to total bill to settle all rooms in full">
+                  ⚡ Pay in Full (${formatCurrency(totalNetBill)})
+                </button>
+              </div>
+            </div>
             <input type="number" id="group-adv-input" class="form-control" placeholder="0.00" min="0" step="0.01" value="${currentTotalAdv || ''}" autofocus />
           </div>
 
-          <div id="group-adv-preview" style="padding:10px 12px; background:linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.08)); border:1.5px solid rgba(16,185,129,0.3); border-radius:8px; font-size:0.82rem; margin-bottom:16px">
-            <div style="font-weight:700; color:var(--clr-success); margin-bottom:4px" id="group-adv-split-line">
-              ⚡ Divided equally: Rs. 0.00 / room across ${count} rooms
+          <!-- Distribution Mode Selector -->
+          <div style="margin-bottom:14px">
+            <div style="font-size:0.75rem; font-weight:700; color:var(--clr-text-muted); text-transform:uppercase; margin-bottom:6px">
+              Distribution Method
             </div>
-            <div style="font-size:0.75rem; color:var(--clr-text-muted)" id="group-adv-rem-line">
-              New total balance due: ${formatCurrency(Math.max(0, totalFullPrice - totalDiscount - currentTotalAdv))}
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:6px" id="group-dist-mode-group">
+              <button type="button" class="btn btn-sm group-dist-tab btn-primary" data-mode="proportional" style="font-size:0.76rem; padding:6px 6px; border-radius:6px; text-align:center">
+                🎯 Proportional (Fair)
+              </button>
+              <button type="button" class="btn btn-sm group-dist-tab btn-outline" data-mode="sequential" style="font-size:0.76rem; padding:6px 6px; border-radius:6px; text-align:center">
+                🌊 Settle in Order
+              </button>
+              <button type="button" class="btn btn-sm group-dist-tab btn-outline" data-mode="equal_capped" style="font-size:0.76rem; padding:6px 6px; border-radius:6px; text-align:center">
+                ⚖️ Equal (Capped)
+              </button>
+              <button type="button" class="btn btn-sm group-dist-tab btn-outline" data-mode="custom" style="font-size:0.76rem; padding:6px 6px; border-radius:6px; text-align:center">
+                ✏️ Custom
+              </button>
+            </div>
+            <div id="group-dist-mode-desc" style="font-size:0.73rem; color:var(--clr-text-muted); margin-top:5px; min-height:16px">
+              Proportional: Divides payment fairly based on each room's bill. No room is overpaid while others owe.
             </div>
           </div>
 
-          <div style="display:flex; justify-content:flex-end; gap:8px">
-            <button type="button" class="btn btn-ghost" id="group-adv-cancel-btn">Cancel</button>
-            <button type="button" class="btn btn-primary" id="group-adv-save-btn" style="background:linear-gradient(135deg,#10b981,#059669); border:none">
-              💾 Save &amp; Divide Advance Equally
-            </button>
+          <!-- Per-Room Breakdown Table -->
+          <div style="border:1px solid var(--clr-border); border-radius:8px; overflow:hidden; margin-bottom:14px">
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem">
+              <thead>
+                <tr style="background:var(--clr-surface-alt, rgba(255,255,255,0.05)); border-bottom:1px solid var(--clr-border)">
+                  <th style="padding:8px 10px; text-align:left">Room</th>
+                  <th style="padding:8px 10px; text-align:right">Net Bill</th>
+                  <th style="padding:8px 10px; text-align:right; width:125px">Advance Paid</th>
+                  <th style="padding:8px 10px; text-align:right">Remaining</th>
+                  <th style="padding:8px 10px; text-align:center; width:65px">Status</th>
+                </tr>
+              </thead>
+              <tbody id="group-rooms-tbody">
+              </tbody>
+            </table>
           </div>
+
+          <!-- Live Balance Summary Box -->
+          <div id="group-adv-summary" style="padding:10px 14px; background:linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.08)); border:1.5px solid rgba(16,185,129,0.3); border-radius:8px; font-size:0.83rem">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px">
+              <span style="color:var(--clr-text-muted)">Total Advance to Apply:</span>
+              <strong id="summary-adv-applied" style="color:var(--clr-success)">Rs. 0.00</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <span style="font-weight:700">True Net Remaining Due:</span>
+              <strong id="summary-rem-due" style="font-size:0.95rem; color:var(--clr-primary)">Rs. 0.00</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="padding:12px 18px; border-top:1px solid var(--clr-border); display:flex; justify-content:flex-end; gap:8px">
+          <button type="button" class="btn btn-ghost" id="group-adv-cancel-btn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="group-adv-save-btn" style="background:linear-gradient(135deg,#10b981,#059669); border:none">
+            💾 Save &amp; Update Payments
+          </button>
         </div>
       </div>
     </div>
@@ -704,65 +768,184 @@ export function openEditGroupAdvanceModal(bookings, onUpdated = () => {}) {
   document.body.insertAdjacentHTML('beforeend', modalHtml);
   const overlay = document.getElementById('edit-group-adv-overlay');
   const input = document.getElementById('group-adv-input');
-  const splitLine = document.getElementById('group-adv-split-line');
-  const remLine = document.getElementById('group-adv-rem-line');
+  const tbody = document.getElementById('group-rooms-tbody');
+  const sumAdv = document.getElementById('summary-adv-applied');
+  const sumRem = document.getElementById('summary-rem-due');
+  const modeDesc = document.getElementById('group-dist-mode-desc');
   const closeBtn = document.getElementById('edit-group-adv-close');
   const cancelBtn = document.getElementById('group-adv-cancel-btn');
   const saveBtn = document.getElementById('group-adv-save-btn');
+  const btnPayFull = document.getElementById('btn-pay-full');
+  const btnRebalance = document.getElementById('btn-rebalance-adv');
+
+  const modeDescriptions = {
+    proportional: 'Proportional: Divides payment fairly based on each room\'s bill. No room is overpaid while others owe.',
+    sequential: 'Settle in Order: Clears room bills sequentially (Room 1 first, then Room 2), leaving any remainder on the last room.',
+    equal_capped: 'Equal Split (Capped): Divides equally, but automatically rolls over any excess funds from low-bill rooms to high-bill rooms.',
+    custom: 'Custom: Type exact advance amounts directly for each individual room.'
+  };
 
   function closeAdvModal() {
     overlay?.remove();
   }
 
-  function updateAdvCalc() {
-    const val = parseFloat(input?.value) || 0;
-    const perRoom = Math.floor((val / count) * 100) / 100;
-    const newBal = Math.max(0, totalFullPrice - totalDiscount - val);
-    const perRoomBal = Math.round((newBal / count) * 100) / 100;
+  function renderTable() {
+    if (!tbody) return;
+    const isCustom = activeMode === 'custom';
 
-    if (splitLine) splitLine.textContent = `⚡ Divided equally: ${formatCurrency(perRoom)} / room across ${count} rooms`;
-    if (remLine) remLine.textContent = `New total balance due: ${formatCurrency(newBal)} (${formatCurrency(perRoomBal)} / room)`;
+    tbody.innerHTML = allocations.map((item, idx) => {
+      const b = item.booking;
+      const isPaid = item.remaining <= 0;
+      return `
+        <tr style="border-bottom:1px solid var(--clr-border)">
+          <td style="padding:8px 10px">
+            <strong style="color:var(--clr-primary)">Room ${b.roomNumber}</strong>
+            <div style="font-size:0.72rem; color:var(--clr-text-muted)">${b.guestName || 'Guest'}</div>
+          </td>
+          <td style="padding:8px 10px; text-align:right; font-weight:600">
+            ${formatCurrency(item.netBill)}
+          </td>
+          <td style="padding:8px 10px; text-align:right">
+            ${isCustom ? `
+              <input type="number" class="form-control group-custom-adv" data-index="${idx}" value="${item.advance}" min="0" step="0.01" style="height:28px; font-size:0.78rem; text-align:right; padding:2px 6px" />
+            ` : `
+              <span style="font-weight:700; color:var(--clr-success)">${formatCurrency(item.advance)}</span>
+            `}
+          </td>
+          <td style="padding:8px 10px; text-align:right; font-weight:700; color:${isPaid ? 'var(--clr-success)' : 'var(--clr-accent)'}">
+            ${formatCurrency(item.remaining)}
+          </td>
+          <td style="padding:8px 10px; text-align:center">
+            <span class="badge ${isPaid ? 'badge-success' : 'badge-primary'}" style="font-size:0.7rem; padding:2px 6px">
+              ${isPaid ? 'PAID' : 'DUE'}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Bind custom inputs if in custom mode
+    if (isCustom) {
+      tbody.querySelectorAll('.group-custom-adv').forEach(custInput => {
+        custInput.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.index, 10);
+          const val = Math.max(0, parseFloat(e.target.value) || 0);
+          allocations[idx].advance = val;
+          allocations[idx].remaining = Math.max(0, Math.round((allocations[idx].netBill - val) * 100) / 100);
+
+          const totalCustAdv = Math.round(allocations.reduce((sum, item) => sum + item.advance, 0) * 100) / 100;
+          if (input) input.value = totalCustAdv;
+          updateSummary();
+          // Update remaining cell live
+          const row = e.target.closest('tr');
+          if (row) {
+            const remCell = row.cells[3];
+            const badgeCell = row.cells[4];
+            const isP = allocations[idx].remaining <= 0;
+            if (remCell) {
+              remCell.textContent = formatCurrency(allocations[idx].remaining);
+              remCell.style.color = isP ? 'var(--clr-success)' : 'var(--clr-accent)';
+            }
+            if (badgeCell) {
+              badgeCell.innerHTML = `<span class="badge ${isP ? 'badge-success' : 'badge-primary'}" style="font-size:0.7rem; padding:2px 6px">${isP ? 'PAID' : 'DUE'}</span>`;
+            }
+          }
+        });
+      });
+    }
+
+    updateSummary();
   }
 
-  input?.addEventListener('input', updateAdvCalc);
-  updateAdvCalc();
+  function updateSummary() {
+    const totalAdv = Math.round(allocations.reduce((sum, item) => sum + item.advance, 0) * 100) / 100;
+    const totalRem = Math.max(0, Math.round((totalNetBill - totalAdv) * 100) / 100);
+
+    if (sumAdv) sumAdv.textContent = formatCurrency(totalAdv);
+    if (sumRem) {
+      sumRem.textContent = formatCurrency(totalRem);
+      sumRem.style.color = totalRem <= 0 ? 'var(--clr-success)' : 'var(--clr-primary)';
+    }
+  }
+
+  function recalculate() {
+    currentVal = Math.max(0, parseFloat(input?.value) || 0);
+    if (activeMode !== 'custom') {
+      allocations = calculateGroupAdvanceDistribution(bookings, currentVal, activeMode);
+    }
+    renderTable();
+  }
+
+  input?.addEventListener('input', recalculate);
+
+  // Tab switching
+  document.querySelectorAll('.group-dist-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.group-dist-tab').forEach(t => {
+        t.classList.remove('btn-primary');
+        t.classList.add('btn-outline');
+      });
+      tab.classList.remove('btn-outline');
+      tab.classList.add('btn-primary');
+
+      activeMode = tab.dataset.mode;
+      if (modeDesc) modeDesc.textContent = modeDescriptions[activeMode] || '';
+
+      recalculate();
+    });
+  });
+
+  // Fast Actions
+  btnPayFull?.addEventListener('click', () => {
+    if (input) input.value = totalNetBill;
+    recalculate();
+  });
+
+  btnRebalance?.addEventListener('click', () => {
+    if (input) input.value = currentTotalAdv;
+    // Switch to proportional mode
+    const propTab = document.querySelector('.group-dist-tab[data-mode="proportional"]');
+    if (propTab) propTab.click();
+    else recalculate();
+  });
 
   closeBtn?.addEventListener('click', closeAdvModal);
   cancelBtn?.addEventListener('click', closeAdvModal);
   overlay?.addEventListener('click', (e) => { if (e.target === overlay) closeAdvModal(); });
 
+  // Initial render
+  recalculate();
+
   saveBtn?.addEventListener('click', async () => {
-    const val = parseFloat(input?.value) || 0;
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
+    saveBtn.textContent = 'Saving payments...';
 
     try {
-      const perRoom = Math.floor((val / count) * 100) / 100;
-      const remAdv = Math.round((val - (perRoom * count)) * 100) / 100;
-
-      for (let i = 0; i < count; i++) {
-        const b = bookings[i];
-        const rmAdv = perRoom + (i === 0 ? remAdv : 0);
-        const rmFull = Number(b.fullPrice || 0);
-        const rmDisc = Number(b.discountAmount || 0);
-        const rmBal = Math.max(0, rmFull - rmDisc - rmAdv);
+      for (let i = 0; i < allocations.length; i++) {
+        const item = allocations[i];
+        const b = item.booking;
 
         await updateBooking(b.id, {
-          advancePaid: rmAdv,
-          remaining: rmBal
+          advancePaid: item.advance,
+          remaining: item.remaining
         });
-        b.advancePaid = rmAdv;
-        b.remaining = rmBal;
+
+        // Update in-memory reference
+        b.advancePaid = item.advance;
+        b.remaining = item.remaining;
       }
 
-      showToast(`Advance updated! ${formatCurrency(val)} divided equally across ${count} rooms. 🎉`, 'success');
+      const totalApplied = Math.round(allocations.reduce((sum, item) => sum + item.advance, 0) * 100) / 100;
+      const totalRem = Math.max(0, Math.round((totalNetBill - totalApplied) * 100) / 100);
+
+      showToast(`Group payment saved! ${formatCurrency(totalApplied)} applied. Net balance due: ${formatCurrency(totalRem)} 🎉`, 'success');
       closeAdvModal();
       onUpdated(bookings);
     } catch (err) {
       console.error(err);
-      showToast('Failed to update advance: ' + err.message, 'error');
+      showToast('Failed to update payments: ' + err.message, 'error');
       saveBtn.disabled = false;
-      saveBtn.textContent = '💾 Save & Divide Advance Equally';
+      saveBtn.textContent = '💾 Save & Update Payments';
     }
   });
 }
