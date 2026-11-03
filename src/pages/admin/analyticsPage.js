@@ -54,6 +54,9 @@ export function renderAnalyticsPage(container) {
             return `<option value="${y}" ${i === 0 ? 'selected' : ''}>${y}</option>`;
           }).join('')}
         </select>
+        <button id="btn-download-pdf" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:6px; font-size:0.85rem; padding:7px 14px; white-space:nowrap;">
+          📥 Download PDF
+        </button>
       </div>
     </div>
     <div class="page-body">
@@ -282,6 +285,11 @@ export function renderAnalyticsPage(container) {
 
   monthSelect?.addEventListener('change', () => {
     refreshData();
+  });
+
+  // Bind Download PDF button
+  document.getElementById('btn-download-pdf')?.addEventListener('click', () => {
+    downloadFinancialPDF();
   });
 
   // Bind tab switching
@@ -1685,6 +1693,665 @@ function renderRecentSummary(bookings) {
     </div>
   `;
 }
+
+// ─── PDF / Print Report ──────────────────────────────────────────────────────
+
+/** Called from the print window's dropdowns via window.opener.generateReport(year, monthFilter) */
+function generateReport(year, monthFilter) {
+  year        = parseInt(year);
+  monthFilter = String(monthFilter);
+  const isAllMonths = monthFilter === 'all';
+  const monthIdx    = isAllMonths ? null : parseInt(monthFilter);
+  const periodLabel = isAllMonths
+    ? `Full Year ${year}`
+    : `${MONTHS[monthIdx]} ${year}`;
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  const empMap = {};
+  allEmployees.forEach(e => { if (e && e.id) empMap[e.id] = e; });
+
+  function resolveDate(obj) {
+    const raw = obj.paidAt || obj.date || obj.createdAt;
+    if (!raw) return null;
+    const d = raw?.toDate ? raw.toDate() : new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function fmtD(raw) {
+    if (!raw) return '—';
+    const d = raw?.toDate ? raw.toDate() : new Date(raw);
+    if (isNaN(d.getTime())) return '—';
+    return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}`;
+  }
+
+  // ── Year-level data ───────────────────────────────────────────────────────────
+  const yearBookings = allBookings.filter(b => {
+    if (b.status !== 'active') return false;
+    const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+    return !isNaN(ci.getTime()) && ci.getFullYear() === year;
+  });
+  const yearBills = allUtilityBills.filter(b => {
+    const d = resolveDate(b); return d && d.getFullYear() === year;
+  });
+  const yearSalaries = allSalaryPayments.filter(p => {
+    let y = p.year ? parseInt(p.year) : null;
+    if (!y) { const d = resolveDate(p); if (d) y = d.getFullYear(); }
+    return y === year;
+  });
+  const yearCommissions = allCommissions.filter(c => {
+    if (c.status !== 'paid') return false;
+    const d = resolveDate(c); return d && d.getFullYear() === year;
+  });
+
+  // ── Period-level filter ───────────────────────────────────────────────────────
+  function inMonth(rec) {
+    if (isAllMonths) return true;
+    const d = resolveDate(rec);
+    return d && d.getMonth() === monthIdx;
+  }
+  function salaryInMonth(p) {
+    let m = (p.month !== undefined && p.month !== null) ? parseInt(p.month) - 1 : null;
+    if (m === null || isNaN(m)) { const d = resolveDate(p); if (d) m = d.getMonth(); }
+    return isAllMonths ? true : m === monthIdx;
+  }
+
+  const books = isAllMonths ? yearBookings : yearBookings.filter(b => {
+    const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+    return ci.getMonth() === monthIdx;
+  });
+  const bills = isAllMonths ? yearBills       : yearBills.filter(inMonth);
+  const sals  = isAllMonths ? yearSalaries    : yearSalaries.filter(salaryInMonth);
+  const comms = isAllMonths ? yearCommissions : yearCommissions.filter(inMonth);
+
+  // ── Period totals ─────────────────────────────────────────────────────────────
+  const totalIncome      = books.reduce((s, b) => s + Number(b.fullPrice || 0), 0);
+  const totalBills       = bills.reduce((s, b) => s + Number(b.amount || 0), 0);
+  const totalSalaries    = sals.reduce((s, p) => s + Number(p.totalPaid || p.amount || 0), 0);
+  const totalCommissions = comms.reduce((s, c) => s + Number(c.amount || 0), 0);
+  const totalExpenses    = totalBills + totalSalaries + totalCommissions;
+  const netProfit        = totalIncome - totalExpenses;
+  const margin           = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : '0.0';
+  const isProfit         = netProfit >= 0;
+
+  // ── 12-month arrays ───────────────────────────────────────────────────────────
+  const mInc  = Array(12).fill(0);
+  const mBill = Array(12).fill(0);
+  const mSal  = Array(12).fill(0);
+  const mComm = Array(12).fill(0);
+
+  yearBookings.forEach(b => {
+    const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+    mInc[ci.getMonth()] += Number(b.fullPrice || 0);
+  });
+  yearBills.forEach(b => {
+    const d = resolveDate(b); if (d) mBill[d.getMonth()] += Number(b.amount || 0);
+  });
+  yearSalaries.forEach(p => {
+    let m = (p.month !== undefined && p.month !== null) ? parseInt(p.month) - 1 : null;
+    if (m === null || isNaN(m)) { const d = resolveDate(p); if (d) m = d.getMonth(); }
+    if (m !== null && m >= 0 && m <= 11) mSal[m] += Number(p.totalPaid || p.amount || 0);
+  });
+  yearCommissions.forEach(c => {
+    const d = resolveDate(c); if (d) mComm[d.getMonth()] += Number(c.amount || 0);
+  });
+
+  const totYrInc  = mInc.reduce((s,v)=>s+v,0);
+  const totYrBill = mBill.reduce((s,v)=>s+v,0);
+  const totYrSal  = mSal.reduce((s,v)=>s+v,0);
+  const totYrComm = mComm.reduce((s,v)=>s+v,0);
+  const totYrExp  = totYrBill + totYrSal + totYrComm;
+  const totYrProf = totYrInc - totYrExp;
+
+  const now = new Date();
+  const generatedAt = fmtD(now) + ', ' + now.toLocaleTimeString('en-LK', { hour:'2-digit', minute:'2-digit' });
+
+  // ── HTML Sections ─────────────────────────────────────────────────────────────
+
+  const monthlyRowsHtml = MONTHS.map((name, i) => {
+    const inc  = mInc[i];
+    const exp  = mBill[i] + mSal[i] + mComm[i];
+    const prof = inc - exp;
+    const isSelected = !isAllMonths && i === monthIdx;
+    const rowCls = isSelected ? 'row-selected' : (i % 2 === 0 ? 'row-even' : '');
+    const dimCls = (!isAllMonths && !isSelected) ? 'dim' : '';
+    return `<tr class="${rowCls}">
+      <td class="col-month ${dimCls}">${isSelected ? '▶ ' : ''}${name}</td>
+      <td class="col-num income ${dimCls}">${formatCurrency(inc)}</td>
+      <td class="col-num ${dimCls}">${formatCurrency(mBill[i])}</td>
+      <td class="col-num ${dimCls}">${formatCurrency(mSal[i])}</td>
+      <td class="col-num ${dimCls}">${formatCurrency(mComm[i])}</td>
+      <td class="col-num expense ${dimCls}">${formatCurrency(exp)}</td>
+      <td class="col-num ${prof >= 0 ? 'profit' : 'loss'} ${dimCls}">${prof < 0 ? '−' : ''}${formatCurrency(Math.abs(prof))}</td>
+    </tr>`;
+  }).join('');
+
+  const sortedBooks = [...books].sort((a, b) => {
+    const da = a.checkIn?.toDate ? a.checkIn.toDate() : new Date(a.checkIn);
+    const db = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+    return db - da;
+  });
+  const incomeDetailHtml = sortedBooks.map((b, idx) => {
+    const nights  = nightCount(b.checkIn, b.checkOut);
+    const advance = Number(b.advancePaid || 0);
+    const balance = Math.max(0, Number(b.fullPrice || 0) - Number(b.discountAmount || 0) - advance);
+    return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
+      <td>${fmtD(b.checkIn)}</td>
+      <td><strong>${escapeHtml(b.guestName || 'Guest')}</strong></td>
+      <td>Room ${b.roomNumber || '—'}</td>
+      <td>${nights} night${nights !== 1 ? 's' : ''}</td>
+      <td>${escapeHtml(b.meals || '—')}</td>
+      <td>${escapeHtml(b.source || 'Direct')}</td>
+      <td class="col-num">${formatCurrency(advance)}</td>
+      <td class="col-num ${balance > 0 ? 'expense' : 'profit'}">${formatCurrency(balance)}</td>
+      <td class="col-num income">${formatCurrency(b.fullPrice || 0)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" class="empty">No bookings for this period.</td></tr>';
+
+  const sortedSals = [...sals].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
+  const salaryDetailHtml = sortedSals.map((p, idx) => {
+    const emp = empMap[p.employeeId] || { name: p.employeeName || 'Staff Member', role: 'Staff' };
+    const pMIdx = p.month !== undefined && p.month !== null ? parseInt(p.month) - 1 : null;
+    const period = (pMIdx !== null && pMIdx >= 0 && pMIdx < 12)
+      ? `${MONTHS[pMIdx].slice(0,3)} ${p.year || year}`
+      : (p.year || year);
+    return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
+      <td>${fmtD(p.date || p.createdAt)}</td>
+      <td><strong>${escapeHtml(emp.name)}</strong></td>
+      <td>${escapeHtml(emp.role || 'Staff')}</td>
+      <td>${period}</td>
+      <td>${escapeHtml(p.paymentType || 'Salary Settlement')}</td>
+      <td class="col-num expense">${formatCurrency(Number(p.totalPaid || p.amount || 0))}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="empty">No salary payments for this period.</td></tr>';
+
+  const sortedBills = [...bills].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
+  const billTypeIcon = { Light:'⚡', Water:'💧', Internet:'🌐', Gas:'🔥', Maintenance:'🛠️' };
+  const billDetailHtml = sortedBills.map((b, idx) => {
+    const icon = billTypeIcon[b.type] || '🧾';
+    return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
+      <td>${fmtD(b.date || b.createdAt)}</td>
+      <td>${icon} ${escapeHtml(b.type || 'Other')}</td>
+      <td>${escapeHtml(b.description || '—')}</td>
+      <td class="col-num expense">${formatCurrency(b.amount || 0)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="empty">No utility bills for this period.</td></tr>';
+
+  const sortedComms = [...comms].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
+  const commDetailHtml = sortedComms.map((c, idx) => {
+    return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
+      <td>${fmtD(c.paidAt || c.date || c.createdAt)}</td>
+      <td>Booking #${escapeHtml(String(c.bookingNumber || '—'))}</td>
+      <td>${escapeHtml(c.guestName || c.details || '—')}</td>
+      <td class="col-num expense">${formatCurrency(c.amount || 0)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="empty">No commissions for this period.</td></tr>';
+
+  // ── Return the complete report body HTML ──────────────────────────────────────
+  return {
+    periodLabel,
+    generatedAt,
+    year,
+    isProfit,
+    html: `
+    <!-- ── REPORT HEADER ── -->
+    <div class="report-header">
+      <div class="hotel-name">🏨 Hotel Management System</div>
+      <div class="report-title">Financial Income &amp; Expense Report</div>
+      <div class="report-title" style="font-size:15px; color:#4f72f5; margin-top:4px;">${periodLabel}</div>
+      <div class="report-meta">Generated on ${generatedAt}</div>
+    </div>
+
+    <!-- ── SUMMARY KPIs ── -->
+    <div class="section-title">📋 Financial Summary</div>
+    <div class="kpi-grid">
+      <div class="kpi-card income-card">
+        <div class="kpi-label">💰 Total Income</div>
+        <div class="kpi-value">${formatCurrency(totalIncome)}</div>
+        <div class="kpi-sub">${books.length} booking${books.length !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="kpi-card expense-card">
+        <div class="kpi-label">💸 Total Expenses</div>
+        <div class="kpi-value">${formatCurrency(totalExpenses)}</div>
+        <div class="kpi-sub">${sals.length} salary · ${bills.length} bills · ${comms.length} commissions</div>
+      </div>
+      <div class="kpi-card ${isProfit ? 'profit-card' : 'loss-card'}">
+        <div class="kpi-label">${isProfit ? '💎 Net Profit' : '⚠️ Net Deficit'}</div>
+        <div class="kpi-value">${netProfit < 0 ? '−' : ''}${formatCurrency(Math.abs(netProfit))}</div>
+        <div class="kpi-sub">Margin: ${margin}%</div>
+      </div>
+    </div>
+
+    <!-- ── EXPENSE BREAKDOWN ── -->
+    <div class="section-title">📊 Expense Breakdown</div>
+    <div class="breakdown-bar" style="margin-bottom:28px;">
+      <div class="breakdown-item">
+        <span class="breakdown-label">⚡ Utility Bills</span>
+        <span class="breakdown-val c-amber">${formatCurrency(totalBills)}</span>
+      </div>
+      <div class="breakdown-item">
+        <span class="breakdown-label">👥 Staff Salaries</span>
+        <span class="breakdown-val c-purple">${formatCurrency(totalSalaries)}</span>
+      </div>
+      <div class="breakdown-item">
+        <span class="breakdown-label">💼 Commissions Paid</span>
+        <span class="breakdown-val c-blue">${formatCurrency(totalCommissions)}</span>
+      </div>
+    </div>
+
+    <!-- ── P&L STATEMENT ── -->
+    <div class="section-title">🧾 Profit &amp; Loss Statement</div>
+    <div class="fin-summary" style="margin-bottom:28px;">
+      <div class="fin-row">
+        <span>💰 Gross Income (Booking Revenue)</span>
+        <strong style="color:#16a34a">${formatCurrency(totalIncome)}</strong>
+      </div>
+      <div class="fin-row">
+        <span>&nbsp;&nbsp;&nbsp;⚡ Less: Utility Bills</span>
+        <span style="color:#dc2626">(${formatCurrency(totalBills)})</span>
+      </div>
+      <div class="fin-row">
+        <span>&nbsp;&nbsp;&nbsp;👥 Less: Staff Salaries &amp; Payroll</span>
+        <span style="color:#dc2626">(${formatCurrency(totalSalaries)})</span>
+      </div>
+      <div class="fin-row">
+        <span>&nbsp;&nbsp;&nbsp;💼 Less: Commissions Paid</span>
+        <span style="color:#dc2626">(${formatCurrency(totalCommissions)})</span>
+      </div>
+      <div class="fin-row">
+        <span>💸 Total Expenses</span>
+        <strong style="color:#dc2626">${formatCurrency(totalExpenses)}</strong>
+      </div>
+      <div class="fin-row total-row">
+        <span>${isProfit ? '💎 NET PROFIT' : '⚠️ NET DEFICIT'}</span>
+        <strong style="color:${isProfit ? '#16a34a' : '#dc2626'}; font-size:16px;">
+          ${netProfit < 0 ? '−' : ''}${formatCurrency(Math.abs(netProfit))}
+          &nbsp;<small style="font-size:11px; font-weight:400;">(${margin}% margin)</small>
+        </strong>
+      </div>
+    </div>
+
+    <!-- ── MONTHLY BREAKDOWN TABLE ── -->
+    <div class="section">
+      <div class="section-title">📅 Monthly Breakdown — ${year}</div>
+      <table>
+        <thead class="monthly-head">
+          <tr>
+            <th>Month</th>
+            <th class="col-num">Booking Income</th>
+            <th class="col-num">Utility Bills</th>
+            <th class="col-num">Salaries</th>
+            <th class="col-num">Commissions</th>
+            <th class="col-num">Total Expenses</th>
+            <th class="col-num">Net Profit / Loss</th>
+          </tr>
+        </thead>
+        <tbody>${monthlyRowsHtml}</tbody>
+        <tfoot class="monthly-foot">
+          <tr>
+            <td>TOTAL ${year}</td>
+            <td class="col-num income">${formatCurrency(totYrInc)}</td>
+            <td class="col-num">${formatCurrency(totYrBill)}</td>
+            <td class="col-num">${formatCurrency(totYrSal)}</td>
+            <td class="col-num">${formatCurrency(totYrComm)}</td>
+            <td class="col-num expense">${formatCurrency(totYrExp)}</td>
+            <td class="col-num ${totYrProf >= 0 ? 'profit' : 'loss'}">${totYrProf < 0 ? '−' : ''}${formatCurrency(Math.abs(totYrProf))}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- ── INCOME DETAIL TABLE ── -->
+    <div class="section">
+      <div class="section-title">💰 Income Detail — Booking Revenue (${periodLabel})</div>
+      <table>
+        <thead class="income-head">
+          <tr>
+            <th>Check-In Date</th><th>Guest Name</th><th>Room</th><th>Nights</th>
+            <th>Meal Plan</th><th>Source</th>
+            <th class="col-num">Advance Paid</th>
+            <th class="col-num">Balance Due</th>
+            <th class="col-num">Full Price</th>
+          </tr>
+        </thead>
+        <tbody>${incomeDetailHtml}</tbody>
+        <tfoot class="income-foot">
+          <tr>
+            <td colspan="8">TOTAL BOOKING INCOME &nbsp;(${books.length} booking${books.length !== 1 ? 's' : ''})</td>
+            <td class="col-num">${formatCurrency(totalIncome)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- ── SALARY / PAYROLL TABLE ── -->
+    <div class="section">
+      <div class="section-title">👥 Salary &amp; Payroll Disbursals (${periodLabel})</div>
+      <table>
+        <thead class="salary-head">
+          <tr>
+            <th>Payment Date</th><th>Employee Name</th><th>Role / Designation</th>
+            <th>Salary Period</th><th>Payment Type</th>
+            <th class="col-num">Amount Paid</th>
+          </tr>
+        </thead>
+        <tbody>${salaryDetailHtml}</tbody>
+        <tfoot class="expense-foot">
+          <tr>
+            <td colspan="5">TOTAL PAYROLL &nbsp;(${sals.length} payment${sals.length !== 1 ? 's' : ''})</td>
+            <td class="col-num">${formatCurrency(totalSalaries)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- ── UTILITY BILLS TABLE ── -->
+    <div class="section">
+      <div class="section-title">⚡ Utility Bills (${periodLabel})</div>
+      <table>
+        <thead class="bill-head">
+          <tr>
+            <th>Date</th><th>Category</th><th>Description</th>
+            <th class="col-num">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${billDetailHtml}</tbody>
+        <tfoot class="expense-foot">
+          <tr>
+            <td colspan="3">TOTAL UTILITY BILLS &nbsp;(${bills.length} bill${bills.length !== 1 ? 's' : ''})</td>
+            <td class="col-num">${formatCurrency(totalBills)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    ${comms.length > 0 ? `
+    <!-- ── COMMISSIONS TABLE ── -->
+    <div class="section">
+      <div class="section-title">💼 Commissions Paid (${periodLabel})</div>
+      <table>
+        <thead class="comm-head">
+          <tr>
+            <th>Date Paid</th><th>Booking Ref</th><th>Details</th>
+            <th class="col-num">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${commDetailHtml}</tbody>
+        <tfoot class="expense-foot">
+          <tr>
+            <td colspan="3">TOTAL COMMISSIONS &nbsp;(${comms.length} payment${comms.length !== 1 ? 's' : ''})</td>
+            <td class="col-num">${formatCurrency(totalCommissions)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>` : ''}
+
+    <!-- ── REPORT FOOTER ── -->
+    <div style="border-top:2px solid #e2e8f0; padding-top:14px; margin-top:16px; display:flex; justify-content:space-between; font-size:10px; color:#94a3b8;">
+      <div>Hotel Management System &bull; Confidential Financial Report</div>
+      <div>Period: ${periodLabel} &bull; Generated: ${generatedAt}</div>
+    </div>`
+  };
+}
+
+// Expose to print window via window object
+window._hotelGenerateReport = generateReport;
+
+function downloadFinancialPDF() {
+  const yearSelect  = document.getElementById('analytics-year');
+  const monthSelect = document.getElementById('analytics-month');
+  if (!yearSelect) return;
+
+  const initYear        = yearSelect.value || String(new Date().getFullYear());
+  const initMonthFilter = monthSelect ? monthSelect.value : 'all';
+  const currentYear     = new Date().getFullYear();
+
+  const printWin = window.open('', '_blank', 'width=1060,height=860,scrollbars=yes');
+  if (!printWin) {
+    showToast('Please allow popups to generate the report.', 'error');
+    return;
+  }
+
+  // Build month options HTML
+  const monthOptionsHtml = `<option value="all">All Months</option>` +
+    MONTHS.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+
+  // Build year options HTML
+  const yearOptionsHtml = [0, 1, 2].map(i => {
+    const y = currentYear - i;
+    return `<option value="${y}">${y}</option>`;
+  }).join('');
+
+  const { html: reportHtml, periodLabel, generatedAt } = generateReport(initYear, initMonthFilter);
+
+  printWin.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Financial Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 13px;
+      color: #1e293b;
+      background: #fff;
+    }
+
+    /* ── Print toolbar (hidden on print) ── */
+    .print-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: #4f72f5;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      z-index: 9999;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .print-bar .pb-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .print-bar .pb-label { font-weight: 700; font-size: 14px; white-space: nowrap; }
+    .print-bar select {
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+      cursor: pointer;
+      background: #fff;
+      min-width: 120px;
+    }
+    .print-bar button {
+      background: #fff;
+      color: #4f72f5;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 18px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .print-bar button:hover { background: #e0e7ff; }
+    .print-bar .pb-hint { font-size: 11px; opacity: 0.8; white-space: nowrap; }
+
+    /* ── Report wrapper ── */
+    .report-wrapper {
+      max-width: 960px;
+      margin: 76px auto 40px;
+      padding: 0 20px;
+    }
+
+    /* ── HEADER ── */
+    .report-header {
+      text-align: center;
+      padding: 24px 0 18px;
+      border-bottom: 3px solid #4f72f5;
+      margin-bottom: 28px;
+    }
+    .report-header .hotel-name  { font-size: 24px; font-weight: 800; color: #4f72f5; }
+    .report-header .report-title { font-size: 17px; font-weight: 700; color: #1e293b; margin-top: 6px; }
+    .report-header .report-meta  { font-size: 11px; color: #64748b; margin-top: 5px; }
+
+    /* ── Section titles ── */
+    .section-title {
+      font-size: 14px; font-weight: 700; color: #1e293b;
+      margin-bottom: 12px; padding-bottom: 6px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    /* ── KPI grid ── */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+    .kpi-card { border-radius: 10px; padding: 18px 16px; text-align: center; }
+    .kpi-card.income-card  { background: #f0fdf4; border: 1.5px solid #86efac; }
+    .kpi-card.expense-card { background: #fff1f2; border: 1.5px solid #fca5a5; }
+    .kpi-card.profit-card  { background: #f0fdf4; border: 1.5px solid #86efac; }
+    .kpi-card.loss-card    { background: #fff1f2; border: 1.5px solid #fca5a5; }
+    .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+    .kpi-card.income-card  .kpi-label, .kpi-card.profit-card .kpi-label { color: #166534; }
+    .kpi-card.expense-card .kpi-label, .kpi-card.loss-card   .kpi-label { color: #991b1b; }
+    .kpi-value { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+    .kpi-card.income-card  .kpi-value, .kpi-card.profit-card .kpi-value { color: #16a34a; }
+    .kpi-card.expense-card .kpi-value, .kpi-card.loss-card   .kpi-value { color: #dc2626; }
+    .kpi-sub { font-size: 10px; color: #64748b; }
+
+    /* ── Breakdown bar ── */
+    .breakdown-bar {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 14px 18px; margin-bottom: 28px;
+    }
+    .breakdown-item { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }
+    .breakdown-label { font-size: 11px; color: #64748b; }
+    .breakdown-val   { font-weight: 700; font-size: 13px; }
+    .c-amber  { color: #d97706; }
+    .c-purple { color: #7c3aed; }
+    .c-blue   { color: #0ea5e9; }
+
+    /* ── P&L box ── */
+    .fin-summary { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 20px; margin-bottom: 28px; }
+    .fin-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+    .fin-row:last-child { border-bottom: none; }
+    .fin-row.total-row { font-weight: 700; font-size: 14px; margin-top: 4px; padding-top: 10px; border-top: 2px solid #e2e8f0; border-bottom: none; }
+
+    /* ── Tables ── */
+    .section { margin-bottom: 32px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead tr { color: #fff; }
+    thead.income-head  tr { background: #16a34a; }
+    thead.salary-head  tr { background: #7c3aed; }
+    thead.bill-head    tr { background: #d97706; }
+    thead.comm-head    tr { background: #0284c7; }
+    thead.monthly-head tr { background: #4f72f5; }
+    th { padding: 9px 10px; text-align: left; font-weight: 600; }
+    th.col-num { text-align: right; }
+    td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    td.col-num   { text-align: right; font-variant-numeric: tabular-nums; }
+    td.income    { color: #16a34a; font-weight: 600; }
+    td.expense   { color: #dc2626; font-weight: 600; }
+    td.profit    { color: #16a34a; font-weight: 700; }
+    td.loss      { color: #dc2626; font-weight: 700; }
+    td.col-month { font-weight: 500; }
+    td.dim       { color: #94a3b8; }
+    tr.row-even     { background: #f8fafc; }
+    tr.row-selected { background: #eef3ff; font-weight: 700; }
+    tr.empty td { color: #94a3b8; font-style: italic; padding: 16px 10px; text-align: center; }
+    tfoot tr { font-weight: 700; font-size: 13px; }
+    tfoot.income-foot  tr { background: #dcfce7; color: #166534; }
+    tfoot.expense-foot tr { background: #fee2e2; color: #991b1b; }
+    tfoot.monthly-foot tr { background: #e2e8f0; color: #1e293b; }
+
+    /* ── Page footer (print only) ── */
+    .page-footer { display: none; }
+
+    /* ══ PRINT STYLES ══ */
+    @media print {
+      .print-bar { display: none; }
+      body { font-size: 11px; }
+      .report-wrapper { margin: 0; padding: 8mm 10mm; max-width: 100%; }
+      .kpi-grid { gap: 10px; }
+      .kpi-card { padding: 12px; }
+      .kpi-value { font-size: 17px; }
+      .breakdown-bar { padding: 10px 14px; }
+      table { font-size: 10px; }
+      th, td { padding: 5px 7px; }
+      .section { page-break-inside: avoid; }
+      .section-title { page-break-after: avoid; }
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+      tr { page-break-inside: avoid; }
+      .page-footer {
+        display: flex; position: fixed; bottom: 5mm; left: 10mm; right: 10mm;
+        font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 4px;
+        justify-content: space-between;
+      }
+      @page { size: A4 portrait; margin: 12mm 10mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Print toolbar -->
+  <div class="print-bar">
+    <div class="pb-left">
+      <span class="pb-label">📊 Financial Report</span>
+      <select id="rpt-month" onchange="reloadReport()">
+        ${monthOptionsHtml}
+      </select>
+      <select id="rpt-year" onchange="reloadReport()">
+        ${yearOptionsHtml}
+      </select>
+      <span class="pb-hint">← Change period, report updates instantly</span>
+    </div>
+    <button onclick="window.print()">🖨️ Print / Save PDF</button>
+  </div>
+
+  <!-- Report body (re-rendered on dropdown change) -->
+  <div class="report-wrapper" id="report-body">
+    ${reportHtml}
+  </div>
+
+  <div class="page-footer" id="page-footer-el">
+    <span>Hotel Management System — Confidential</span>
+    <span id="footer-period">${periodLabel}</span>
+  </div>
+
+  <script>
+    // Pre-select the dropdowns to match what was chosen on the main page
+    document.getElementById('rpt-month').value = '${initMonthFilter}';
+    document.getElementById('rpt-year').value  = '${initYear}';
+
+    function reloadReport() {
+      const y = document.getElementById('rpt-year').value;
+      const m = document.getElementById('rpt-month').value;
+
+      // Call back into the main window's generateReport function
+      try {
+        const result = window.opener._hotelGenerateReport(y, m);
+        document.getElementById('report-body').innerHTML = result.html;
+        document.title = 'Financial Report — ' + result.periodLabel;
+        const fp = document.getElementById('footer-period');
+        if (fp) fp.textContent = result.periodLabel;
+      } catch(e) {
+        console.error('Report reload failed:', e);
+        document.getElementById('report-body').innerHTML =
+          '<p style="padding:40px; color:#dc2626; text-align:center;">⚠️ Could not reload report. The main window may have navigated away.</p>';
+      }
+    }
+  </script>
+
+</body>
+</html>`);
+
+  printWin.document.close();
+  printWin.focus();
+
+// ─── Destroy ─────────────────────────────────────────────────────────────────
 
 export function destroyAnalyticsPage() {
   if (unsubBookings) { unsubBookings(); unsubBookings = null; }
