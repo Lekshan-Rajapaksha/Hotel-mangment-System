@@ -2350,6 +2350,7 @@ function downloadFinancialPDF() {
 
   printWin.document.close();
   printWin.focus();
+}
 
 // ─── Destroy ─────────────────────────────────────────────────────────────────
 
