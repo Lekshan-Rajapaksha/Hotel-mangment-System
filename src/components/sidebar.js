@@ -4,6 +4,7 @@ import { auth } from '../firebase.js';
 import { showToast } from '../utils/toast.js';
 import { subscribePendingCount } from '../services/deleteRequestService.js';
 import { subscribeUnreadPriceNotifCount } from '../services/priceService.js';
+import { subscribePendingCommissionEditCount } from '../services/commissionEditRequestService.js';
 import logoImg from '../assets/Blue cove hiriketiya (1).png';
 
 const COLLAPSED_KEY = 'sidebar_collapsed';
@@ -112,9 +113,10 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
     if (isAdmin) {
       let deleteCount = 0;
       let priceCount  = 0;
+      let commissionCount = 0;
 
       const updateBadge = () => {
-        const total = deleteCount + priceCount;
+        const total = deleteCount + priceCount + commissionCount;
         const badge = document.getElementById('notif-badge');
         if (!badge) return;
         if (total > 0) {
@@ -132,6 +134,11 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
 
       subscribeUnreadPriceNotifCount((count) => {
         priceCount = count;
+        updateBadge();
+      });
+
+      subscribePendingCommissionEditCount((count) => {
+        commissionCount = count;
         updateBadge();
       });
     }

@@ -3,8 +3,14 @@ import {
   addCommission,
   markCommissionPaid,
   deleteCommission,
-  subscribeCommissions
+  subscribeCommissions,
+  updateCommission
 } from '../../services/commissionService.js';
+import {
+  submitCommissionEditRequest,
+  approveCommissionEditRequest,
+  rejectCommissionEditRequest
+} from '../../services/commissionEditRequestService.js';
 import { subscribeBookings } from '../../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
 import { formatCurrency, formatDate } from '../../utils/dateHelpers.js';
@@ -16,9 +22,11 @@ let availableBookings = [];
 let currentFilter = 'all'; // 'all' | 'unpaid' | 'paid'
 let searchQuery = '';
 let selectedBookingNumbers = new Set(); // Multi-selection set
+let _isAdmin = false;
 
 export function renderCommissionPage(container, options = {}) {
-  const isAdmin = Boolean(options.isAdmin);
+  _isAdmin = Boolean(options.isAdmin);
+  const isAdmin = _isAdmin;
   const today = new Date().toISOString().split('T')[0];
   selectedBookingNumbers.clear();
 
@@ -534,6 +542,10 @@ function renderTable() {
       ? `<span class="badge badge-success" style="font-weight:700">✅ Paid</span>`
       : `<span class="badge badge-accent" style="font-weight:700">⏳ Non-Paid</span>`;
 
+    const pendingEditBadge = c.hasPendingEdit
+      ? `<div style="margin-top:4px"><span class="badge badge-accent" style="font-size:0.68rem; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a" title="Requested by ${escapeHtml(c.pendingEditRequestedBy || 'Staff')}">⏳ Edit Pending Approval</span></div>`
+      : '';
+
     const expenseTag = isPaid
       ? `<span style="font-size:0.75rem; color:var(--clr-success); font-weight:600">💸 System Expense</span>`
       : `<span style="font-size:0.75rem; color:var(--clr-text-muted)">Pending Payout</span>`;
@@ -553,9 +565,20 @@ function renderTable() {
       ? `<div style="font-size:0.74rem; color:var(--clr-text-muted); margin-top:3px">${escapeHtml(guests)}${c.roomNumber ? ` (Room ${c.roomNumber})` : ''}</div>`
       : '';
 
+    const pendingDetailsPreview = c.hasPendingEdit && c.pendingEditData?.details && c.pendingEditData.details !== c.details
+      ? `<div style="font-size:0.72rem; color:#b45309; margin-top:3px; font-style:italic">Pending: "${escapeHtml(c.pendingEditData.details)}"</div>`
+      : '';
+
+    const pendingAmountPreview = c.hasPendingEdit && c.pendingEditData?.amount && Number(c.pendingEditData.amount) !== Number(c.amount)
+      ? `<div style="font-size:0.72rem; color:#b45309; margin-top:2px; font-weight:600">Pending: ${formatCurrency(c.pendingEditData.amount)}</div>`
+      : '';
+
     return `
       <tr data-id="${c.id}" class="${isPaid ? 'row-comm-paid' : 'row-comm-unpaid'}" style="${isPaid ? 'background:rgba(255,255,255,0.01)' : ''}">
-        <td>${statusBadge}</td>
+        <td>
+          ${statusBadge}
+          ${pendingEditBadge}
+        </td>
         <td>
           <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center">
             ${bBadges || '—'}
@@ -563,8 +586,11 @@ function renderTable() {
           </div>
           ${guestLabel}
         </td>
-        <td style="font-weight:700; font-size:0.95rem; color:${isPaid ? 'var(--clr-text)' : 'var(--clr-accent)'}">
-          ${formatCurrency(c.amount)}
+        <td>
+          <div style="font-weight:700; font-size:0.95rem; color:${isPaid ? 'var(--clr-text)' : 'var(--clr-accent)'}">
+            ${formatCurrency(c.amount)}
+          </div>
+          ${pendingAmountPreview}
         </td>
         <td>
           <div style="font-size:0.85rem">${formatDate(c.date, true)}</div>
@@ -574,10 +600,21 @@ function renderTable() {
           <div style="font-size:0.83rem; max-width:220px; word-break:break-word; color:${c.details ? 'var(--clr-text)' : 'var(--clr-text-muted)'}">
             ${escapeHtml(c.details) || '—'}
           </div>
+          ${pendingDetailsPreview}
         </td>
         <td>${expenseTag}</td>
         <td style="text-align:right">
           <div class="flex gap-1" style="justify-content:flex-end; align-items:center">
+            ${
+              _isAdmin && c.hasPendingEdit
+                ? `<button class="btn btn-warning btn-sm btn-review-comm-edit" data-id="${c.id}" title="Review Pending Edit Request" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:0.75rem; padding:3px 8px; font-weight:700">
+                    ⚠️ Review
+                   </button>`
+                : ''
+            }
+            <button class="btn btn-ghost btn-sm btn-edit-comm" data-id="${c.id}" title="Edit Commission Details" style="color:var(--clr-primary); font-size:0.85rem">
+              ✏️
+            </button>
             ${
               !isPaid
                 ? `<button class="btn btn-success btn-sm btn-mark-paid" data-id="${c.id}" title="Mark as Paid (Counts as System Expense)">
@@ -601,6 +638,14 @@ function renderTable() {
 }
 
 function bindTableActionButtons() {
+  // Edit Commission Button
+  document.querySelectorAll('.btn-edit-comm, .btn-review-comm-edit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      if (id) openCommissionEditModal(id);
+    });
+  });
+
   // Mark as Paid Button
   document.querySelectorAll('.btn-mark-paid').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -667,6 +712,222 @@ function bindTableActionButtons() {
   });
 }
 
+function openCommissionEditModal(commissionId) {
+  const comm = currentCommissions.find(c => c.id === commissionId);
+  if (!comm) return;
+
+  // Remove any existing modal
+  closeCommissionEditModal();
+
+  const isPending = Boolean(comm.hasPendingEdit);
+  const pending = comm.pendingEditData || {};
+
+  // Prefill values
+  const initBookingNum = isPending && pending.bookingNumber !== undefined ? pending.bookingNumber : (comm.bookingNumber || '');
+  const initAmount = isPending && pending.amount !== undefined ? pending.amount : (comm.amount || '');
+  const initDate = isPending && pending.date !== undefined ? pending.date : (comm.date || '');
+  const initDetails = isPending && pending.details !== undefined ? pending.details : (comm.details || '');
+
+  const pendingBoxHtml = isPending ? `
+    <div style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:10px; padding:14px 16px; margin-bottom:18px">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+        <span style="font-weight:700; color:#b45309; font-size:0.85rem">⏳ Pending Edit Request</span>
+        <span style="font-size:0.75rem; color:#92400e">Requested by <strong>${escapeHtml(comm.pendingEditRequestedBy || 'Staff')}</strong></span>
+      </div>
+      <div style="font-size:0.8rem; color:#78350f; display:flex; flex-direction:column; gap:4px">
+        <div><strong>Booking #(s):</strong> #${escapeHtml(pending.bookingNumber || '—')} <span style="color:#a16207">(Current: #${escapeHtml(comm.bookingNumber || '—')})</span></div>
+        <div><strong>Commission Price:</strong> ${formatCurrency(pending.amount)} <span style="color:#a16207">(Current: ${formatCurrency(comm.amount)})</span></div>
+        <div><strong>Date:</strong> ${pending.date || '—'} <span style="color:#a16207">(Current: ${comm.date || '—'})</span></div>
+        <div><strong>Details / Recipient:</strong> ${escapeHtml(pending.details || '—')} <span style="color:#a16207">(Current: ${escapeHtml(comm.details || '—')})</span></div>
+        ${comm.pendingEditReason ? `<div style="margin-top:4px; font-style:italic">Reason: ${escapeHtml(comm.pendingEditReason)}</div>` : ''}
+      </div>
+    </div>
+  ` : '';
+
+  const modalHtml = `
+    <div class="modal-overlay" id="comm-edit-modal-overlay">
+      <div class="modal" style="max-width:540px">
+        <div class="modal-header">
+          <div class="modal-title">✏️ Edit Commission</div>
+          <button type="button" class="modal-close" id="btn-close-comm-modal" aria-label="Close">✕</button>
+        </div>
+        <form id="comm-edit-form" class="modal-form">
+          <div class="modal-body">
+            ${pendingBoxHtml}
+
+            ${!_isAdmin ? `
+              <div style="background:var(--clr-primary-dim, rgba(79,114,245,0.1)); border:1px solid var(--clr-primary); border-radius:8px; padding:10px 14px; font-size:0.78rem; color:var(--clr-text); margin-bottom:16px">
+                ℹ️ <strong>Approval Required:</strong> Any changes made will be submitted to the Admin for approval before taking effect.
+              </div>
+            ` : ''}
+
+            <div class="form-group">
+              <label class="form-label" for="edit-comm-bnum">Booking Number(s) *</label>
+              <input type="text" class="form-control" id="edit-comm-bnum" value="${escapeHtml(initBookingNum)}" placeholder="e.g. 01, 02" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="edit-comm-amount">Commission Price (Rs.) *</label>
+              <input type="number" class="form-control" id="edit-comm-amount" value="${initAmount}" min="0" step="0.01" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="edit-comm-date">Date *</label>
+              <input type="date" class="form-control" id="edit-comm-date" value="${initDate}" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="edit-comm-details">Details / Recipient (Optional)</label>
+              <input type="text" class="form-control" id="edit-comm-details" value="${escapeHtml(initDetails)}" placeholder="e.g. Tuk-tuk driver Kumara, Agent..." />
+            </div>
+
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" for="edit-comm-reason">
+                ${_isAdmin ? 'Admin Note / Reason (Optional)' : 'Reason for Edit (Optional)'}
+              </label>
+              <input type="text" class="form-control" id="edit-comm-reason" placeholder="e.g. Price correction, updated details" />
+            </div>
+          </div>
+
+          <div class="modal-footer" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px">
+            ${_isAdmin && isPending ? `
+              <div class="flex gap-1">
+                <button type="button" class="btn btn-danger btn-sm" id="btn-admin-reject-comm-edit">
+                  ❌ Reject Edit
+                </button>
+                <button type="button" class="btn btn-success btn-sm" id="btn-admin-approve-comm-edit">
+                  ✅ Approve Edit
+                </button>
+              </div>
+              <div class="flex gap-1">
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-comm-modal">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">💾 Direct Save</button>
+              </div>
+            ` : _isAdmin ? `
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-comm-modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+            ` : `
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-comm-modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">📤 Submit for Admin Approval</button>
+            `}
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  // Close bindings
+  document.getElementById('btn-close-comm-modal')?.addEventListener('click', closeCommissionEditModal);
+  document.getElementById('btn-cancel-comm-modal')?.addEventListener('click', closeCommissionEditModal);
+  document.getElementById('comm-edit-modal-overlay')?.addEventListener('click', (e) => {
+    if (e.target.id === 'comm-edit-modal-overlay') closeCommissionEditModal();
+  });
+
+  // Admin Approve button
+  document.getElementById('btn-admin-approve-comm-edit')?.addEventListener('click', async () => {
+    if (!confirm('Approve this commission edit request? The proposed values will be applied.')) return;
+    showSpinner();
+    try {
+      await approveCommissionEditRequest(comm.pendingEditId, comm.id, comm.pendingEditData);
+      hideSpinner();
+      closeCommissionEditModal();
+      showToast('Commission edit approved & applied! ✅', 'success');
+    } catch (err) {
+      hideSpinner();
+      showToast('Error approving edit: ' + err.message, 'error');
+    }
+  });
+
+  // Admin Reject button
+  document.getElementById('btn-admin-reject-comm-edit')?.addEventListener('click', async () => {
+    if (!confirm('Reject this commission edit request? Original values will be kept.')) return;
+    showSpinner();
+    try {
+      await rejectCommissionEditRequest(comm.pendingEditId, comm.id);
+      hideSpinner();
+      closeCommissionEditModal();
+      showToast('Commission edit request rejected ❌', 'info');
+    } catch (err) {
+      hideSpinner();
+      showToast('Error rejecting edit: ' + err.message, 'error');
+    }
+  });
+
+  // Form submit (Direct Save for Admin, Submit for Approval for Staff)
+  document.getElementById('comm-edit-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const rawBnum = document.getElementById('edit-comm-bnum')?.value.trim();
+    const amount = parseFloat(document.getElementById('edit-comm-amount')?.value || '0');
+    const date = document.getElementById('edit-comm-date')?.value;
+    const details = document.getElementById('edit-comm-details')?.value.trim();
+    const reason = document.getElementById('edit-comm-reason')?.value.trim();
+
+    if (!rawBnum) {
+      showToast('Please enter at least one booking number', 'error');
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      showToast('Please enter a valid commission price', 'error');
+      return;
+    }
+    if (!date) {
+      showToast('Please select a date', 'error');
+      return;
+    }
+
+    const bookingNumbers = rawBnum.split(',').map(s => s.trim().replace(/^#/, '')).filter(Boolean);
+    const matched = availableBookings.filter(b => bookingNumbers.includes(String(b.bookingNumber)));
+    const guestNames = matched.map(b => b.guestName);
+    const guestNameStr = guestNames.join(', ') || comm.guestName || '';
+    const roomNumbers = [...new Set(matched.map(b => b.roomNumber))].join(', ') || comm.roomNumber || '';
+
+    const newValues = {
+      bookingNumber: bookingNumbers.join(', '),
+      bookingNumbers,
+      amount,
+      date,
+      details,
+      guestName: guestNameStr,
+      guestNames,
+      roomNumber: roomNumbers
+    };
+
+    showSpinner();
+    try {
+      if (_isAdmin) {
+        // Direct save by admin
+        // Also if it had a pending edit request, resolve it
+        if (comm.hasPendingEdit && comm.pendingEditId) {
+          await approveCommissionEditRequest(comm.pendingEditId, comm.id, newValues);
+        } else {
+          await updateCommission(comm.id, newValues);
+        }
+        hideSpinner();
+        closeCommissionEditModal();
+        showToast('Commission updated successfully! ✅', 'success');
+      } else {
+        // Staff submit edit request
+        await submitCommissionEditRequest(comm, newValues, reason);
+        hideSpinner();
+        closeCommissionEditModal();
+        showToast('Edit submitted! Waiting for Admin approval ⏳', 'success');
+      }
+    } catch (err) {
+      hideSpinner();
+      console.error('Error updating commission:', err);
+      showToast('Failed to save edit: ' + err.message, 'error');
+    }
+  });
+}
+
+function closeCommissionEditModal() {
+  const modal = document.getElementById('comm-edit-modal-overlay');
+  if (modal) modal.remove();
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -678,6 +939,7 @@ function escapeHtml(str) {
 }
 
 export function destroyCommissionPage() {
+  closeCommissionEditModal();
   if (unsubCommissions && typeof unsubCommissions === 'function') {
     unsubCommissions();
     unsubCommissions = null;

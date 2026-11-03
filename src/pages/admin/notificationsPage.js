@@ -1,4 +1,4 @@
-// src/pages/admin/notificationsPage.js — Admin notifications: delete requests + price changes
+// src/pages/admin/notificationsPage.js — Admin notifications: delete requests + price changes + commission edits
 import {
   subscribeDeleteRequests,
   approveDeleteRequest,
@@ -10,16 +10,34 @@ import {
   markNotificationRead,
   dismissNotification,
 } from '../../services/priceService.js';
+import {
+  subscribeCommissionEditRequests,
+  approveCommissionEditRequest,
+  rejectCommissionEditRequest,
+  dismissCommissionEditRequest,
+} from '../../services/commissionEditRequestService.js';
 import { deleteBooking } from '../../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
-import { formatDate } from '../../utils/dateHelpers.js';
+import { formatDate, formatCurrency } from '../../utils/dateHelpers.js';
 
 let unsubDeleteRequests = null;
 let unsubPriceNotifs   = null;
+let unsubCommEditRequests = null;
 
 // Combined state
 let _deleteRequests = [];
 let _priceNotifs   = [];
+let _commEditRequests = [];
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 export function renderNotificationsPage(container) {
   container.innerHTML = `
@@ -27,7 +45,7 @@ export function renderNotificationsPage(container) {
       <div>
         <h1 class="page-title">🔔 Notifications</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">
-          Delete requests &amp; price change alerts
+          Delete requests, price change alerts &amp; commission edit approvals
         </div>
       </div>
     </div>
@@ -49,6 +67,13 @@ export function renderNotificationsPage(container) {
     (notifs) => { _priceNotifs = notifs; renderAll(); },
     (err) => console.warn('Price notif error:', err)
   );
+
+  // Subscribe to commission edit requests
+  if (unsubCommEditRequests) unsubCommEditRequests();
+  unsubCommEditRequests = subscribeCommissionEditRequests(
+    (requests) => { _commEditRequests = requests; renderAll(); },
+    (err) => console.warn('Commission edit request error:', err)
+  );
 }
 
 function renderAll() {
@@ -59,10 +84,13 @@ function renderAll() {
   const resolvedDel = _deleteRequests.filter(r => r.status !== 'pending');
   const unreadPrice = _priceNotifs.filter(n => n.status === 'unread');
   const readPrice   = _priceNotifs.filter(n => n.status !== 'unread');
+  const pendingComm = _commEditRequests.filter(r => r.status === 'pending');
+  const resolvedComm = _commEditRequests.filter(r => r.status !== 'pending');
 
-  const totalPending = pendingDel.length + unreadPrice.length;
+  const totalPending = pendingDel.length + unreadPrice.length + pendingComm.length;
+  const totalResolved = resolvedDel.length + readPrice.length + resolvedComm.length;
 
-  if (totalPending === 0 && resolvedDel.length === 0 && readPrice.length === 0) {
+  if (totalPending === 0 && totalResolved === 0) {
     list.innerHTML = `
       <div style="text-align:center; padding:60px 20px; color:var(--clr-text-muted)">
         <div style="font-size:3rem; margin-bottom:16px">✅</div>
@@ -81,19 +109,21 @@ function renderAll() {
       Requires Attention (${totalPending})
     </div>`;
 
-    // Price change alerts first (most actionable)
+    // Price change alerts first
     html += unreadPrice.map(n => renderPriceCard(n, false)).join('');
+    // Commission edit requests
+    html += pendingComm.map(r => renderCommissionEditCard(r)).join('');
     // Then delete requests
     html += pendingDel.map(r => renderDeleteCard(r)).join('');
   }
 
   // ── Resolved / Read section ───────────────────────────────────────
-  const hasResolved = resolvedDel.length > 0 || readPrice.length > 0;
-  if (hasResolved) {
+  if (totalResolved > 0) {
     html += `<div class="notif-section-label" style="margin-top:${totalPending ? '28px' : '0'}px">
-      Resolved / Read (${resolvedDel.length + readPrice.length})
+      Resolved / Read (${totalResolved})
     </div>`;
     html += readPrice.map(n => renderPriceCard(n, true)).join('');
+    html += resolvedComm.map(r => renderCommissionEditCard(r)).join('');
     html += resolvedDel.map(r => renderDeleteCard(r)).join('');
   }
 
@@ -229,6 +259,98 @@ function renderDeleteCard(r) {
   `;
 }
 
+// ─── Commission Edit Request Card ─────────────────────────────────────────────
+
+function renderCommissionEditCard(r) {
+  const requestedAt = r.requestedAt?.toDate ? r.requestedAt.toDate() : new Date(r.requestedAt || 0);
+  const timeAgo    = formatTimeAgo(requestedAt);
+  const isPending  = r.status === 'pending';
+  const isApproved = r.status === 'approved';
+
+  const statusBadge = isPending
+    ? `<span class="notif-badge notif-badge--pending">⏳ Pending Approval</span>`
+    : isApproved
+    ? `<span class="notif-badge notif-badge--approved">✅ Approved</span>`
+    : `<span class="notif-badge notif-badge--rejected">❌ Rejected</span>`;
+
+  const borderColor = isPending ? 'var(--clr-accent, #f59e0b)' : isApproved ? 'var(--clr-success, #22c55e)' : 'var(--clr-border)';
+
+  const oldD = r.oldData || {};
+  const newD = r.newData || {};
+
+  // Compute diffs
+  const diffRows = [];
+  if (oldD.bookingNumber !== newD.bookingNumber) {
+    diffRows.push({ label: 'Booking #(s)', oldV: `#${oldD.bookingNumber || '—'}`, newV: `#${newD.bookingNumber || '—'}` });
+  }
+  if (Number(oldD.amount) !== Number(newD.amount)) {
+    diffRows.push({ label: 'Commission Price', oldV: formatCurrency(oldD.amount), newV: formatCurrency(newD.amount) });
+  }
+  if (oldD.date !== newD.date) {
+    diffRows.push({ label: 'Date', oldV: oldD.date || '—', newV: newD.date || '—' });
+  }
+  if ((oldD.details || '') !== (newD.details || '')) {
+    diffRows.push({ label: 'Details / Recipient', oldV: oldD.details || '(Empty)', newV: newD.details || '(Empty)' });
+  }
+
+  const diffHtml = diffRows.length > 0
+    ? diffRows.map(d => `
+        <div class="price-change-row">
+          <span class="price-change-label" style="font-weight:600">${d.label}</span>
+          <span class="price-change-old">${escapeHtml(d.oldV)}</span>
+          <span class="price-change-arrow" style="color:var(--clr-primary)">➔</span>
+          <span class="price-change-new" style="color:var(--clr-primary); font-weight:700">${escapeHtml(d.newV)}</span>
+        </div>
+      `).join('')
+    : `<div style="font-size:0.8rem; color:var(--clr-text-muted); padding:4px 0">Field values updated</div>`;
+
+  return `
+    <details class="expandable-widget notif-card ${!isPending ? 'notif-card--resolved' : ''}"
+      data-comm-req-id="${r.id}" style="border-left-color:${borderColor}; opacity:${isPending ? '1' : '0.75'}">
+      <summary class="notif-card-summary">
+        <div class="notif-card-left">
+          <div class="notif-card-icon-wrap" style="background:rgba(245,158,11,0.15); color:#f59e0b">💼</div>
+          <div>
+            ${statusBadge}
+            <div class="notif-card-title">Commission Edit — Booking #${oldD.bookingNumber || '—'} (${formatCurrency(oldD.amount)})</div>
+            <div class="notif-card-meta">by <strong>${r.requestedBy || 'Staff'}</strong> · ${timeAgo}</div>
+          </div>
+        </div>
+        <span class="notif-expand-hint">▾</span>
+      </summary>
+
+      <div class="expandable-widget-content">
+        <div style="margin-bottom:12px">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--clr-text-muted); text-transform:uppercase; margin-bottom:8px">Proposed Changes</div>
+          <div class="price-changes-table" style="margin-bottom:12px">
+            <div class="price-change-header">
+              <span>Field</span>
+              <span>Original Value</span>
+              <span></span>
+              <span>Requested New Value</span>
+            </div>
+            ${diffHtml}
+          </div>
+        </div>
+
+        ${r.reason ? `
+          <div style="background:var(--clr-surface);border:1px solid var(--clr-border);border-radius:6px;padding:8px 12px;font-size:0.82rem;color:var(--clr-text-muted);margin-bottom:16px">
+            📝 <em>Reason: ${escapeHtml(r.reason)}</em>
+          </div>` : ''}
+
+        <div class="notif-card-actions">
+          ${isPending ? `
+            <button class="btn btn-ghost btn-sm notif-comm-reject" data-id="${r.id}" data-comm-id="${r.commissionId}">❌ Reject Edit</button>
+            <button class="btn btn-success btn-sm notif-comm-approve" data-id="${r.id}" data-comm-id="${r.commissionId}">✅ Approve Edit</button>
+          ` : `
+            <button class="btn btn-ghost btn-sm notif-comm-dismiss" data-id="${r.id}" style="font-size:0.75rem">🗑 Dismiss</button>
+          `}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
 function infoItem(label, value) {
   return `
     <div>
@@ -260,6 +382,18 @@ function bindCardActions() {
   // Price change: Dismiss
   document.querySelectorAll('.notif-price-dismiss').forEach(btn => {
     btn.addEventListener('click', () => handlePriceDismiss(btn.dataset.id));
+  });
+  // Commission edit: Approve
+  document.querySelectorAll('.notif-comm-approve').forEach(btn => {
+    btn.addEventListener('click', () => handleCommApprove(btn.dataset.id, btn.dataset.commId));
+  });
+  // Commission edit: Reject
+  document.querySelectorAll('.notif-comm-reject').forEach(btn => {
+    btn.addEventListener('click', () => handleCommReject(btn.dataset.id, btn.dataset.commId));
+  });
+  // Commission edit: Dismiss
+  document.querySelectorAll('.notif-comm-dismiss').forEach(btn => {
+    btn.addEventListener('click', () => handleCommDismiss(btn.dataset.id));
   });
 }
 
@@ -304,6 +438,42 @@ async function handlePriceDismiss(notifId) {
   } catch (err) { showToast('Error: ' + err.message, 'error'); }
 }
 
+async function handleCommApprove(requestId, commissionId) {
+  const req = _commEditRequests.find(r => r.id === requestId);
+  if (!req) return;
+  if (!confirm('Approve this commission edit? The new details will be applied to the commission.')) return;
+  showSpinner();
+  try {
+    await approveCommissionEditRequest(requestId, commissionId, req.newData);
+    showToast('Commission edit approved & applied! ✅', 'success');
+  } catch (err) {
+    showToast('Error approving edit: ' + err.message, 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+async function handleCommReject(requestId, commissionId) {
+  if (!confirm('Reject this commission edit request? Original details will be preserved.')) return;
+  showSpinner();
+  try {
+    await rejectCommissionEditRequest(requestId, commissionId);
+    showToast('Commission edit request rejected ❌', 'info');
+  } catch (err) {
+    showToast('Error rejecting edit: ' + err.message, 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+async function handleCommDismiss(requestId) {
+  try {
+    await dismissCommissionEditRequest(requestId);
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTimeAgo(date) {
@@ -318,8 +488,10 @@ function formatTimeAgo(date) {
 }
 
 export function destroyNotificationsPage() {
-  if (unsubDeleteRequests) { unsubDeleteRequests(); unsubDeleteRequests = null; }
-  if (unsubPriceNotifs)    { unsubPriceNotifs();    unsubPriceNotifs    = null; }
+  if (unsubDeleteRequests)   { unsubDeleteRequests();   unsubDeleteRequests = null; }
+  if (unsubPriceNotifs)      { unsubPriceNotifs();      unsubPriceNotifs    = null; }
+  if (unsubCommEditRequests) { unsubCommEditRequests(); unsubCommEditRequests = null; }
   _deleteRequests = [];
   _priceNotifs    = [];
+  _commEditRequests = [];
 }
