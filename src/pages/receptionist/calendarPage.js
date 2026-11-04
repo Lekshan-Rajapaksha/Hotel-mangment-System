@@ -2,6 +2,7 @@
 import { renderCalendar, destroyCalendar } from '../../components/calendar.js';
 import { openBookingModal } from '../../components/bookingModal.js';
 import { subscribeBookings } from '../../services/bookingService.js';
+import { icon } from '../../components/icons.js';
 
 let _calPageUnsubscribe = null;
 
@@ -9,13 +10,13 @@ export function renderCalendarPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">📅 Room Calendar</h1>
+        <h1 class="page-title">${icon('calendar', { size: 26 })} Room Calendar</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">
           Click any empty cell to book · Click booked cell to view/edit
         </div>
       </div>
       <button class="btn btn-accent" id="new-booking-btn">
-        ➕ New Booking
+        ${icon('plus', { size: 16 })} New Booking
       </button>
     </div>
     <div class="page-body">

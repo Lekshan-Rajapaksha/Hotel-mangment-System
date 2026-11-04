@@ -9,6 +9,7 @@ import { openPrintBill, openConsolidatedPrintBill } from './printBill.js';
 import { subscribeBookings } from '../services/bookingService.js';
 import { deleteBooking } from '../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../utils/toast.js';
+import { icon } from './icons.js';
 
 const ROOMS = [100, 101, 102, 103, 104, 105, 106];
 
@@ -49,9 +50,9 @@ export function renderCalendar(container, role) {
     <div class="cal-wrapper ${adminClass}" id="cal-wrapper">
       <div class="cal-toolbar">
         <div class="cal-nav">
-          <button class="cal-nav-btn" id="cal-prev" title="Previous">◀</button>
-          <button class="cal-nav-btn" id="cal-today-btn" title="Today" style="width:auto;padding:0 12px;font-size:0.8rem;font-weight:600">Today</button>
-          <button class="cal-nav-btn" id="cal-next" title="Next">▶</button>
+          <button class="cal-nav-btn" id="cal-prev" title="Previous">${icon('chevron-left', { size: 16 })}</button>
+          <button class="cal-nav-btn cal-nav-today" id="cal-today-btn" title="Today">Today</button>
+          <button class="cal-nav-btn" id="cal-next" title="Next">${icon('chevron-right', { size: 16 })}</button>
         </div>
         <div class="cal-title" id="cal-title">Loading…</div>
         <div class="view-toggle">
@@ -190,19 +191,19 @@ function renderGrid() {
   if (isAdmin) {
     if (currentView === 'weekly') {
       // 7 days — always fits on screen, no scroll needed
-      colsTemplate = `36px repeat(${cols}, minmax(0, 1fr))`;
+      colsTemplate = `48px repeat(${cols}, minmax(0, 1fr))`;
     } else {
       // Monthly (28–31 cols) or yearly (12 cols) — allow a small scroll with min cell size
-      colsTemplate = `36px repeat(${cols}, minmax(28px, 1fr))`;
+      colsTemplate = `48px repeat(${cols}, minmax(30px, 1fr))`;
     }
   } else {
-    colsTemplate = `110px repeat(${cols}, minmax(100px, 1fr))`;
+    colsTemplate = `135px repeat(${cols}, minmax(105px, 1fr))`;
   }
 
   let html = `<div class="cal-grid" style="grid-template-columns:${colsTemplate}">`;
 
   // --- Header row ---
-  html += `<div class="cal-header-cell" style="grid-column:1">#</div>`;
+  html += `<div class="cal-header-cell cal-header-room" style="grid-column:1">${isAdmin ? '#' : 'Room'}</div>`;
   days.forEach((day, i) => {
     let label = '';
     let isToday = false;
@@ -241,8 +242,9 @@ function renderGrid() {
     } else {
       html += `
         <div class="cal-room-label" style="grid-column:1; grid-row:auto">
-          <span class="cal-room-icon">🚪</span>
-          <span class="cal-room-word">Room </span><span class="cal-room-num">${room}</span>
+          <span class="cal-room-icon">${icon('room', { size: 14 })}</span>
+          <span class="cal-room-word">Room</span>
+          <span class="cal-room-num">${room}</span>
         </div>
       `;
     }

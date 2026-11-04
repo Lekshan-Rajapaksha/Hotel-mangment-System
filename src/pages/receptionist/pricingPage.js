@@ -2,6 +2,7 @@
 import { subscribePrices, savePrices, DEFAULT_PRICES } from '../../services/priceService.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
 import { formatCurrency } from '../../utils/dateHelpers.js';
+import { icon } from '../../components/icons.js';
 
 let unsubscribe = null;
 let currentPrices = null;
@@ -10,10 +11,10 @@ export function renderPricingPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">💰 Price Log</h1>
+        <h1 class="page-title">${icon('tag', { size: 26 })} Price Log</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">Manage room rates, meal plan prices & extra charges</div>
       </div>
-      <button class="btn btn-accent" id="save-prices-btn">💾 Save Changes</button>
+      <button class="btn btn-accent" id="save-prices-btn">${icon('check-circle', { size: 16 })} Save Changes</button>
     </div>
 
     <div class="page-body" id="pricing-body">

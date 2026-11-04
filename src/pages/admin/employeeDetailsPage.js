@@ -15,6 +15,7 @@ import {
 } from '../../services/employeeService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
 import { showToast } from '../../utils/toast.js';
+import { icon } from '../../components/icons.js';
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -87,14 +88,14 @@ export function renderEmployeeDetailsPage(container) {
     <div id="admin-emp-grid-view">
       <div class="page-header" style="flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between;">
         <div>
-          <h2 class="page-title" style="margin: 0 0 0.25rem 0;">Employees Details (Admin)</h2>
+          <h2 class="page-title" style="margin: 0 0 0.25rem 0;">${icon('users', { size: 26 })} Team & Payroll (Admin)</h2>
           <p style="color: var(--clr-text-muted); font-size: 0.85rem; margin: 0;">
             Mark attendance for any date, calculate daily-rate salaries, edit basic salary/details, and manage payouts.
           </p>
         </div>
         <div>
           <button class="btn btn-primary" id="btn-admin-add-emp" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
-            <span>➕</span> Add New Employee
+            ${icon('plus', { size: 16 })} Add New Employee
           </button>
         </div>
       </div>
@@ -103,7 +104,7 @@ export function renderEmployeeDetailsPage(container) {
       <div class="card admin-attendance-toolbar" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
         <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
           <span style="font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.35rem;">
-            <span>📅</span> Mark Attendance For:
+            ${icon('calendar', { size: 16 })} Mark Attendance For:
           </span>
           <div style="display: inline-flex; align-items: center; gap: 0.25rem;">
             <button class="btn btn-sm btn-ghost" id="admin-grid-prev-day" title="Previous Day" style="padding: 0.3rem 0.6rem; border: 1px solid var(--clr-border);">◀</button>
@@ -963,7 +964,7 @@ function openProfileView(emp) {
 
         <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem;">Payment History &amp; Vouchers</h4>
         <div style="max-height: 380px; overflow-y: auto;">
-          <table class="table" style="width:100%; text-align:left; font-size: 0.85rem;">
+          <table class="data-table" style="width:100%; text-align:left; font-size: 0.85rem;">
             <thead>
               <tr>
                 <th>Period</th>

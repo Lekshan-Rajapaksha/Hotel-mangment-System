@@ -19,6 +19,7 @@ import {
 import { deleteBooking } from '../../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
 import { formatDate, formatCurrency } from '../../utils/dateHelpers.js';
+import { icon } from '../../components/icons.js';
 
 let unsubDeleteRequests = null;
 let unsubPriceNotifs   = null;
@@ -43,7 +44,7 @@ export function renderNotificationsPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">🔔 Notifications</h1>
+        <h1 class="page-title">${icon('bell', { size: 26 })} Notifications & Approvals</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">
           Delete requests, price change alerts &amp; commission edit approvals
         </div>

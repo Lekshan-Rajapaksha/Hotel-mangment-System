@@ -3,6 +3,7 @@ import { subscribeBookings } from '../../services/bookingService.js';
 import { openBookingModal } from '../../components/bookingModal.js';
 import { openPrintBill, openConsolidatedPrintBill, openEditGroupAdvanceModal } from '../../components/printBill.js';
 import { formatDate, formatCurrency, nightCount, getBookingGuestCount } from '../../utils/dateHelpers.js';
+import { icon } from '../../components/icons.js';
 
 let unsubscribe = null;
 let allBookings = [];
@@ -14,15 +15,15 @@ export function renderMyBookingsPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">📋 Bookings</h1>
+        <h1 class="page-title">${icon('ticket', { size: 26 })} My Bookings</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">All current & upcoming reservations</div>
       </div>
       <div class="flex gap-2">
         <div class="search-bar">
-          <span>🔍</span>
+          <span style="display:inline-flex; align-items:center">${icon('search', { size: 16 })}</span>
           <input type="text" id="booking-search" placeholder="Search guest, room…" />
         </div>
-        <button class="btn btn-accent" id="new-booking-btn2">➕ New</button>
+        <button class="btn btn-accent" id="new-booking-btn2">${icon('plus', { size: 16 })} New</button>
       </div>
     </div>
     <div class="page-body">
@@ -56,16 +57,16 @@ export function renderMyBookingsPage(container) {
       </div>
 
       <!-- Bulk Action Bar for Multi-Room / Event Printing -->
-      <div id="bookings-bulk-bar" style="display:none; position:sticky; bottom:16px; margin-top:14px; z-index:15; background:var(--clr-surface); border:1px solid var(--clr-primary); border-radius:10px; padding:10px 18px; box-shadow:0 8px 24px rgba(79,114,245,0.18); align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
-        <div style="font-size:0.88rem; font-weight:700; color:var(--clr-text)">
-          🏨 <span id="bulk-selected-count" style="color:var(--clr-primary)">0</span> bookings selected
+      <div id="bookings-bulk-bar" style="display:none; position:sticky; bottom:16px; margin-top:14px; z-index:15; background:var(--clr-surface); border:1px solid var(--clr-primary); border-radius:12px; padding:10px 18px; box-shadow:0 8px 24px rgba(79,114,245,0.18); align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+        <div style="font-size:0.88rem; font-weight:700; color:var(--clr-text); display:inline-flex; align-items:center; gap:6px">
+          ${icon('ticket', { size: 16 })} <span id="bulk-selected-count" style="color:var(--clr-primary)">0</span> bookings selected
         </div>
         <div class="flex gap-2 items-center">
-          <button class="btn btn-outline btn-sm" id="bulk-edit-advance-btn" style="display:inline-flex; align-items:center; gap:6px" title="Edit and distribute advance payments proportionally, sequentially, or equally">
-            💰 Edit Group Payment / Advance
+          <button class="btn btn-ghost btn-sm" id="bulk-edit-advance-btn" style="display:inline-flex; align-items:center; gap:6px" title="Edit and distribute advance payments proportionally, sequentially, or equally">
+            ${icon('dollar-sign', { size: 14 })} Edit Group Advance
           </button>
           <button class="btn btn-primary btn-sm" id="bulk-print-combined-btn" style="display:inline-flex; align-items:center; gap:6px">
-            🖨️ Print Combined Bill
+            ${icon('receipt', { size: 14 })} Print Combined Bill
           </button>
           <button class="btn btn-ghost btn-sm" id="bulk-clear-btn">✕ Clear</button>
         </div>
@@ -167,7 +168,7 @@ function renderTable(bookings) {
         </td>
         <td data-label="Guests">
           <span class="badge badge-primary" style="font-weight:700; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px">
-            👥 ${guestCount}
+            ${icon('users', { size: 12 })} ${guestCount}
           </span>
           ${b.additionalGuests?.length ? `<div style="font-size:0.72rem; color:var(--clr-text-muted); margin-top:2px" title="${b.additionalGuests.map(g => g.name).filter(Boolean).join(', ')}">+${b.additionalGuests.length} extra</div>` : ''}
         </td>
@@ -177,17 +178,21 @@ function renderTable(bookings) {
         </td>
         <td data-label="Check-In">${formatDate(b.checkIn, true)}</td>
         <td data-label="Check-Out">${formatDate(b.checkOut, true)}</td>
-        <td data-label="Nights" style="font-weight:600">${nights}</td>
+        <td data-label="Nights" style="font-weight:600; text-align:center">${nights}</td>
         <td data-label="Meal">
           <span class="badge badge-primary">${b.meals || 'None'}</span>
         </td>
         <td data-label="Type" style="font-size:0.8rem">${b.source || 'Direct'}</td>
-        <td data-label="Full Price" style="font-weight:600">${formatCurrency(b.fullPrice)}</td>
-        <td data-label="Remaining" style="font-weight:700; color:${remColor}">${formatCurrency(rem)}</td>
+        <td data-label="Full Price" class="numeric" style="font-weight:600">${formatCurrency(b.fullPrice)}</td>
+        <td data-label="Remaining" class="numeric" style="font-weight:700; color:${remColor}">${formatCurrency(rem)}</td>
         <td data-label="Actions">
           <div class="flex gap-1">
-            <button class="btn btn-ghost btn-sm edit-btn" data-id="${b.id}" title="Edit">✏️</button>
-            <button class="btn btn-ghost btn-sm print-btn" data-id="${b.id}" title="Print Bill">🖨️</button>
+            <button class="btn btn-ghost btn-sm edit-btn" data-id="${b.id}" title="Edit Booking" style="display:inline-flex;align-items:center;gap:4px;padding:5px 8px;font-size:0.78rem">
+              ${icon('user', { size: 13 })} Edit
+            </button>
+            <button class="btn btn-ghost btn-sm print-btn" data-id="${b.id}" title="Print Bill" style="display:inline-flex;align-items:center;gap:4px;padding:5px 8px;font-size:0.78rem">
+              ${icon('receipt', { size: 13 })} Print
+            </button>
           </div>
         </td>
       </tr>

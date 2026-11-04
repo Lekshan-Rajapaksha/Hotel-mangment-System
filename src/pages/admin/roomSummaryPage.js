@@ -1,6 +1,7 @@
 // src/pages/admin/roomSummaryPage.js — Room-by-room booking calendar summary (Admin only)
 import { subscribeAllBookings } from '../../services/bookingService.js';
 import { toDateStr, MONTHS } from '../../utils/dateHelpers.js';
+import { icon } from '../../components/icons.js';
 
 const ROOMS = [100, 101, 102, 103, 104, 105, 106];
 let unsubscribe = null;
@@ -21,7 +22,7 @@ export function renderRoomSummaryPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">🏨 Room Summary</h1>
+        <h1 class="page-title">${icon('bed', { size: 26 })} Room Summary</h1>
         <div style="font-size:0.82rem;color:var(--clr-text-muted);margin-top:2px">Booking occupancy by room — colour-coded calendar view</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">

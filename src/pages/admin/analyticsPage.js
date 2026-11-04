@@ -6,6 +6,7 @@ import { subscribeCommissions } from '../../services/commissionService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
 import { formatCurrency, formatDate, nightCount, MONTHS } from '../../utils/dateHelpers.js';
 import { showToast } from '../../utils/toast.js';
+import { icon } from '../../components/icons.js';
 import Chart from 'chart.js/auto';
 
 let charts = {};
@@ -38,7 +39,7 @@ export function renderAnalyticsPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">📊 Analytics & Financial Overview</h1>
+        <h1 class="page-title">${icon('analytics', { size: 26 })} Analytics & Financial Overview</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">
           Business insights, income, expenses, net profit, payroll breakdown, and hotel performance metrics
         </div>
@@ -55,7 +56,7 @@ export function renderAnalyticsPage(container) {
           }).join('')}
         </select>
         <button id="btn-download-pdf" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:6px; font-size:0.85rem; padding:7px 14px; white-space:nowrap;">
-          📥 Download PDF
+          ${icon('download', { size: 16 })} Download PDF
         </button>
       </div>
     </div>
@@ -65,7 +66,7 @@ export function renderAnalyticsPage(container) {
       <div class="financial-hero-grid">
         <!-- Income Card -->
         <div class="stat-card" id="card-fin-income">
-          <div class="stat-icon green">💰</div>
+          <div class="stat-icon green">${icon('dollar-sign', { size: 26 })}</div>
           <div style="flex:1">
             <div style="display:flex; justify-content:space-between; align-items:center">
               <div class="stat-label">Total Income (Bookings)</div>
@@ -78,7 +79,7 @@ export function renderAnalyticsPage(container) {
 
         <!-- Expenses Card -->
         <div class="stat-card" id="card-fin-expenses">
-          <div class="stat-icon red">💸</div>
+          <div class="stat-icon red">${icon('trending-down', { size: 26 })}</div>
           <div style="flex:1">
             <div style="display:flex; justify-content:space-between; align-items:center">
               <div class="stat-label">Total Expenses</div>
@@ -91,7 +92,7 @@ export function renderAnalyticsPage(container) {
 
         <!-- Profit Card -->
         <div class="stat-card profit-positive" id="card-fin-profit">
-          <div class="stat-icon teal" id="fin-profit-icon">💎</div>
+          <div class="stat-icon teal" id="fin-profit-icon">${icon('award', { size: 26 })}</div>
           <div style="flex:1">
             <div style="display:flex; justify-content:space-between; align-items:center">
               <div class="stat-label">Net Profit</div>
@@ -106,7 +107,7 @@ export function renderAnalyticsPage(container) {
       <!-- Secondary Breakdown & Operations Stats -->
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon amber">⚡</div>
+          <div class="stat-icon amber">${icon('zap', { size: 24 })}</div>
           <div>
             <div class="stat-label">Utility Bills</div>
             <div class="stat-value" id="stat-bills">—</div>
@@ -115,7 +116,7 @@ export function renderAnalyticsPage(container) {
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon purple">👥</div>
+          <div class="stat-icon purple">${icon('users', { size: 24 })}</div>
           <div>
             <div class="stat-label">Salaries Paid</div>
             <div class="stat-value" id="stat-salaries">—</div>
@@ -124,7 +125,7 @@ export function renderAnalyticsPage(container) {
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon blue">📋</div>
+          <div class="stat-icon blue">${icon('ticket', { size: 24 })}</div>
           <div>
             <div class="stat-label">Total Bookings</div>
             <div class="stat-value" id="stat-bookings">—</div>
@@ -133,7 +134,7 @@ export function renderAnalyticsPage(container) {
         </div>
 
         <div class="stat-card">
-          <div class="stat-icon green">🛏️</div>
+          <div class="stat-icon green">${icon('bed', { size: 24 })}</div>
           <div>
             <div class="stat-label">Occupancy Rate</div>
             <div class="stat-value" id="stat-occ">—</div>
@@ -677,7 +678,7 @@ function updateFinancialCards({
     profitCard.className = `stat-card ${isProfit ? 'profit-positive' : 'profit-negative'}`;
   }
   if (profitIcon) {
-    profitIcon.textContent = isProfit ? '💎' : '⚠️';
+    profitIcon.innerHTML = isProfit ? icon('award', { size: 26 }) : icon('alert-circle', { size: 26 });
     profitIcon.className = `stat-icon ${isProfit ? 'green' : 'red'}`;
   }
   if (profitBadge) {
@@ -952,17 +953,17 @@ function renderExpenseSummarySection({
       `;
     } else {
       const typeMap = {
-        'Light': { total: 0, count: 0, icon: '⚡' },
-        'Water': { total: 0, count: 0, icon: '💧' },
-        'Internet': { total: 0, count: 0, icon: '🌐' },
-        'Gas': { total: 0, count: 0, icon: '🔥' },
-        'Maintenance': { total: 0, count: 0, icon: '🛠️' },
-        'Other': { total: 0, count: 0, icon: '🧾' }
+        'Light': { total: 0, count: 0, icon: icon('zap', { size: 15 }) },
+        'Water': { total: 0, count: 0, icon: icon('droplet', { size: 15 }) },
+        'Internet': { total: 0, count: 0, icon: icon('utility', { size: 15 }) },
+        'Gas': { total: 0, count: 0, icon: icon('zap', { size: 15 }) },
+        'Maintenance': { total: 0, count: 0, icon: icon('receipt', { size: 15 }) },
+        'Other': { total: 0, count: 0, icon: icon('receipt', { size: 15 }) }
       };
 
       bills.forEach(b => {
         const t = b.type || 'Other';
-        if (!typeMap[t]) typeMap[t] = { total: 0, count: 0, icon: '🧾' };
+        if (!typeMap[t]) typeMap[t] = { total: 0, count: 0, icon: icon('receipt', { size: 15 }) };
         typeMap[t].total += Number(b.amount || 0);
         typeMap[t].count += 1;
       });
