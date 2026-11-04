@@ -4,6 +4,7 @@ import { formatDate, formatCurrency, nightCount } from '../../utils/dateHelpers.
 import { deleteBooking } from '../../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
 import { openPrintBill } from '../../components/printBill.js';
+import { icon } from '../../components/icons.js';
 
 let unsubscribe = null;
 let allBookings = [];
@@ -12,12 +13,12 @@ export function renderBillsPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">🧾 All Bills & Transactions</h1>
+        <h1 class="page-title">${icon('receipt', { size: 26 })} All Bills & Transactions</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">Complete billing history and payment records</div>
       </div>
       <div class="flex gap-2 items-center" style="flex-wrap:wrap">
         <div class="search-bar">
-          <span>🔍</span>
+          <span style="display:inline-flex; align-items:center">${icon('search', { size: 16 })}</span>
           <input type="text" id="bills-search" placeholder="Search guest, room…" />
         </div>
         <select class="form-control" id="bills-status" style="width:130px">
@@ -36,15 +37,15 @@ export function renderBillsPage(container) {
       <!-- Summary Strip -->
       <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px" id="bills-summary">
         <div class="stat-card">
-          <div class="stat-icon blue">💰</div>
+          <div class="stat-icon blue">${icon('credit-card', { size: 24 })}</div>
           <div><div class="stat-label">Total Revenue</div><div class="stat-value" id="bs-revenue">—</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon orange">⏳</div>
+          <div class="stat-icon orange">${icon('clock', { size: 24 })}</div>
           <div><div class="stat-label">Outstanding</div><div class="stat-value" id="bs-outstanding">—</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon green">✅</div>
+          <div class="stat-icon green">${icon('check-circle', { size: 24 })}</div>
           <div><div class="stat-label">Fully Paid</div><div class="stat-value" id="bs-paid">—</div></div>
         </div>
       </div>
@@ -159,50 +160,55 @@ function renderTable(bookings) {
     const isPast = co < now;
     const isCurrent = ci <= now && co >= now;
 
-    let statusLabel, statusColor;
-    if (isCancelled) { statusLabel = '❌ Cancelled'; statusColor = 'var(--clr-danger)'; }
-    else if (isPast)  { statusLabel = '✅ Completed'; statusColor = 'var(--clr-text-muted)'; }
-    else if (isCurrent) { statusLabel = '🟢 Active'; statusColor = 'var(--clr-success)'; }
-    else              { statusLabel = '🔵 Upcoming'; statusColor = 'var(--clr-primary)'; }
+    let statusBadge;
+    if (isCancelled) {
+      statusBadge = '<span class="badge badge-danger">Cancelled</span>';
+    } else if (isPast) {
+      statusBadge = '<span class="badge" style="background:rgba(100,116,139,0.1); color:#475569; border:1px solid rgba(100,116,139,0.2)">Completed</span>';
+    } else if (isCurrent) {
+      statusBadge = '<span class="badge badge-success">Active</span>';
+    } else {
+      statusBadge = '<span class="badge badge-primary">Upcoming</span>';
+    }
 
     tableHtml += `
-      <tr data-id="${b.id}" style="${isCancelled ? 'opacity:0.5' : ''}">
+      <tr data-id="${b.id}" style="${isCancelled ? 'opacity:0.6' : ''}">
         <td data-label="Bill #" style="font-family:monospace; font-size:0.85rem; font-weight:700; color:var(--clr-primary)">${billNo}</td>
         <td data-label="Guest">
-          <div style="text-align:right">
+          <div style="text-align:left">
             <div style="font-weight:600">${b.guestName}</div>
             <div style="font-size:0.75rem; color:var(--clr-text-muted)">${b.phone}</div>
           </div>
         </td>
-        <td data-label="Room"><span style="font-weight:700; color:var(--clr-primary)">Room ${b.roomNumber}</span></td>
+        <td data-label="Room"><span style="font-weight:600; color:var(--clr-text)">Room ${b.roomNumber}</span></td>
         <td data-label="Check-In">${formatDate(b.checkIn, true)}</td>
         <td data-label="Check-Out">${formatDate(b.checkOut, true)}</td>
-        <td data-label="Nights" style="font-weight:600">${nights}</td>
+        <td data-label="Nights" style="font-weight:600; text-align:center">${nights}</td>
         <td data-label="Source"><span class="badge badge-primary">${b.source||'Direct'}</span></td>
-        <td data-label="Full Price" style="font-weight:600">${formatCurrency(b.fullPrice)}</td>
-        <td data-label="Advance" style="color:var(--clr-success); font-weight:600">${formatCurrency(b.advancePaid||0)}</td>
-        <td data-label="Remaining" style="font-weight:700; color:${rem<=0?'var(--clr-success)':'var(--clr-accent)'}">  ${formatCurrency(Math.max(0,rem))}</td>
-        <td data-label="Status" style="color:${statusColor}; font-weight:600; font-size:0.8rem; white-space:nowrap">${statusLabel}</td>
+        <td data-label="Full Price" class="numeric" style="font-weight:600">${formatCurrency(b.fullPrice)}</td>
+        <td data-label="Advance" class="numeric" style="color:var(--clr-success); font-weight:600">${formatCurrency(b.advancePaid||0)}</td>
+        <td data-label="Remaining" class="numeric" style="font-weight:700; color:${rem<=0?'var(--clr-success)':'var(--clr-accent)'}">${formatCurrency(Math.max(0,rem))}</td>
+        <td data-label="Status">${statusBadge}</td>
         <td data-label="Actions">
           <div class="flex gap-1" style="justify-content:flex-end">
-            <button class="btn btn-secondary btn-sm print-bill-btn" data-id="${b.id}" title="Print Bill" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;font-size:0.8rem">
-              🖨️ Print
+            <button class="btn btn-ghost btn-sm print-bill-btn" data-id="${b.id}" title="Print Bill" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.8rem">
+              ${icon('receipt', { size: 14 })} Print
             </button>
-            ${!isCancelled ? `<button class="btn btn-danger btn-sm delete-bill-btn" data-id="${b.id}" title="Delete">🗑</button>` : ''}
+            ${!isCancelled ? `<button class="btn btn-danger btn-sm delete-bill-btn" data-id="${b.id}" title="Delete" style="padding:5px 9px">${icon('alert-circle', { size: 14 })}</button>` : ''}
           </div>
         </td>
       </tr>
     `;
 
     mobileHtml += `
-      <details class="expandable-widget" style="${isCancelled ? 'opacity:0.5' : ''}">
+      <details class="expandable-widget" style="${isCancelled ? 'opacity:0.6' : ''}">
         <summary>
           <div>
             <div style="font-weight:700; font-size:1rem; color:var(--clr-text)">${b.guestName}</div>
             <div style="font-size:0.75rem; color:var(--clr-text-muted)">Room ${b.roomNumber} · ${billNo}</div>
           </div>
           <div style="text-align:right">
-            <div style="color:${statusColor}; font-weight:700; font-size:0.75rem">${statusLabel}</div>
+            <div style="margin-bottom:4px">${statusBadge}</div>
             <div style="font-weight:800; font-size:0.9rem">${formatCurrency(Math.max(0,rem))}</div>
           </div>
         </summary>

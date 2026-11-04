@@ -1,6 +1,7 @@
 import { addUtilityBill, subscribeUtilityBills, deleteUtilityBill } from '../../services/utilityBillService.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
 import { formatCurrency, formatDate } from '../../utils/dateHelpers.js';
+import { icon } from '../../components/icons.js';
 
 let unsubscribe = null;
 let currentBills = [];
@@ -9,7 +10,7 @@ export function renderUtilityBillsPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">🧾 Utility Bills</h1>
+        <h1 class="page-title">${icon('zap', { size: 26 })} Utility Bills</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">Manage light, water, internet, and other bills</div>
       </div>
     </div>

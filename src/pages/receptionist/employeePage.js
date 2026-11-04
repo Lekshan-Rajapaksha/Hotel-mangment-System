@@ -12,6 +12,7 @@ import {
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
 import { openPrintEmployeeReport } from '../../components/printEmployeeReport.js';
 import { showToast } from '../../utils/toast.js';
+import { icon } from '../../components/icons.js';
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -45,8 +46,10 @@ export function renderEmployeePage(container) {
     <!-- Grid View: Employees List -->
     <div id="reception-emp-grid-view">
       <div class="page-header">
-        <h2 class="page-title">Employees Management</h2>
-        <button class="btn btn-primary" id="btn-toggle-add">+ Add Employee</button>
+        <h2 class="page-title">${icon('users', { size: 26 })} Staff & Workshifts</h2>
+        <button class="btn btn-primary" id="btn-toggle-add" style="display:inline-flex; align-items:center; gap:6px">
+          ${icon('plus', { size: 16 })} Add Employee
+        </button>
       </div>
 
       <!-- Add Employee Inline Form -->
@@ -519,11 +522,11 @@ function openPaySalaryPage(emp) {
 
     <!-- Bottom Section: Payment History for this Employee -->
     <div class="card" style="padding: 1.25rem;">
-      <h3 style="margin: 0 0 1rem 0; font-size: 1.05rem; display: flex; align-items: center; gap: 0.4rem;">
-        <span>📜</span> Payment History &amp; Vouchers for ${emp.name}
+      <h3 style="margin: 0 0 1rem 0; font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem;">
+        ${icon('receipt', { size: 18 })} Payment History &amp; Vouchers for ${emp.name}
       </h3>
       <div style="overflow-x: auto;">
-        <table class="table" style="width: 100%; text-align: left; font-size: 0.88rem;">
+        <table class="data-table" style="width: 100%; text-align: left; font-size: 0.88rem;">
           <thead>
             <tr>
               <th>Period</th>

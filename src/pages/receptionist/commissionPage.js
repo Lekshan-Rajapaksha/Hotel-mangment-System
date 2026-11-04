@@ -14,6 +14,7 @@ import {
 import { subscribeBookings } from '../../services/bookingService.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
 import { formatCurrency, formatDate } from '../../utils/dateHelpers.js';
+import { icon } from '../../components/icons.js';
 
 let unsubCommissions = null;
 let unsubBookings = null;
@@ -33,7 +34,7 @@ export function renderCommissionPage(container, options = {}) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">💼 Commission</h1>
+        <h1 class="page-title">${icon('award', { size: 26 })} Commission Hub</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">
           Manage booking commissions, driver/agent fees (single or multiple bookings), and operational expenses
         </div>
@@ -44,7 +45,7 @@ export function renderCommissionPage(container, options = {}) {
       <!-- 1. Summary Cards -->
       <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:24px">
         <div class="stat-card" style="border-left:4px solid var(--clr-primary)">
-          <div class="stat-icon blue">💰</div>
+          <div class="stat-icon blue">${icon('award', { size: 24 })}</div>
           <div>
             <div class="stat-label">Total Commissions</div>
             <div class="stat-value" id="stat-comm-total" style="font-size:1.35rem">—</div>
@@ -53,7 +54,7 @@ export function renderCommissionPage(container, options = {}) {
         </div>
 
         <div class="stat-card" style="border-left:4px solid var(--clr-accent)">
-          <div class="stat-icon orange">⏳</div>
+          <div class="stat-icon orange">${icon('clock', { size: 24 })}</div>
           <div>
             <div class="stat-label">Non-Paid (Pending)</div>
             <div class="stat-value" id="stat-comm-unpaid" style="font-size:1.35rem; color:var(--clr-accent)">—</div>
@@ -62,7 +63,7 @@ export function renderCommissionPage(container, options = {}) {
         </div>
 
         <div class="stat-card" style="border-left:4px solid var(--clr-success)">
-          <div class="stat-icon green">💸</div>
+          <div class="stat-icon green">${icon('check-circle', { size: 24 })}</div>
           <div>
             <div class="stat-label">Paid (System Expenses)</div>
             <div class="stat-value" id="stat-comm-paid" style="font-size:1.35rem; color:var(--clr-success)">—</div>
@@ -539,15 +540,15 @@ function renderTable() {
   tbody.innerHTML = filtered.map(c => {
     const isPaid = c.status === 'paid';
     const statusBadge = isPaid
-      ? `<span class="badge badge-success" style="font-weight:700">✅ Paid</span>`
-      : `<span class="badge badge-accent" style="font-weight:700">⏳ Non-Paid</span>`;
+      ? `<span class="badge badge-success">Paid</span>`
+      : `<span class="badge badge-accent">Non-Paid</span>`;
 
     const pendingEditBadge = c.hasPendingEdit
-      ? `<div style="margin-top:4px"><span class="badge badge-accent" style="font-size:0.68rem; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a" title="Requested by ${escapeHtml(c.pendingEditRequestedBy || 'Staff')}">⏳ Edit Pending Approval</span></div>`
+      ? `<div style="margin-top:4px"><span class="badge badge-warning" title="Requested by ${escapeHtml(c.pendingEditRequestedBy || 'Staff')}">Edit Pending</span></div>`
       : '';
 
     const expenseTag = isPaid
-      ? `<span style="font-size:0.75rem; color:var(--clr-success); font-weight:600">💸 System Expense</span>`
+      ? `<span style="font-size:0.75rem; color:#16a34a; font-weight:600">System Expense</span>`
       : `<span style="font-size:0.75rem; color:var(--clr-text-muted)">Pending Payout</span>`;
 
     // Multi-booking badges
@@ -574,7 +575,7 @@ function renderTable() {
       : '';
 
     return `
-      <tr data-id="${c.id}" class="${isPaid ? 'row-comm-paid' : 'row-comm-unpaid'}" style="${isPaid ? 'background:rgba(255,255,255,0.01)' : ''}">
+      <tr data-id="${c.id}" class="${isPaid ? 'row-comm-paid' : 'row-comm-unpaid'}">
         <td>
           ${statusBadge}
           ${pendingEditBadge}
@@ -586,7 +587,7 @@ function renderTable() {
           </div>
           ${guestLabel}
         </td>
-        <td>
+        <td class="numeric">
           <div style="font-weight:700; font-size:0.95rem; color:${isPaid ? 'var(--clr-text)' : 'var(--clr-accent)'}">
             ${formatCurrency(c.amount)}
           </div>
@@ -607,25 +608,25 @@ function renderTable() {
           <div class="flex gap-1" style="justify-content:flex-end; align-items:center">
             ${
               _isAdmin && c.hasPendingEdit
-                ? `<button class="btn btn-warning btn-sm btn-review-comm-edit" data-id="${c.id}" title="Review Pending Edit Request" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:0.75rem; padding:3px 8px; font-weight:700">
-                    ⚠️ Review
+                ? `<button class="btn btn-warning btn-sm btn-review-comm-edit" data-id="${c.id}" title="Review Pending Edit Request" style="font-size:0.75rem; padding:4px 8px; font-weight:600">
+                    Review
                    </button>`
                 : ''
             }
-            <button class="btn btn-ghost btn-sm btn-edit-comm" data-id="${c.id}" title="Edit Commission Details" style="color:var(--clr-primary); font-size:0.85rem">
-              ✏️
+            <button class="btn btn-ghost btn-sm btn-edit-comm" data-id="${c.id}" title="Edit Commission Details" style="padding:5px 8px; font-size:0.78rem">
+              ${icon('tag', { size: 13 })} Edit
             </button>
             ${
               !isPaid
-                ? `<button class="btn btn-success btn-sm btn-mark-paid" data-id="${c.id}" title="Mark as Paid (Counts as System Expense)">
-                    💳 Paid
+                ? `<button class="btn btn-success btn-sm btn-mark-paid" data-id="${c.id}" title="Mark as Paid (Counts as System Expense)" style="padding:5px 8px; font-size:0.78rem">
+                    ${icon('check-circle', { size: 13 })} Paid
                    </button>`
-                : `<button class="btn btn-ghost btn-sm btn-revert-paid" data-id="${c.id}" title="Revert to Non-Paid" style="font-size:0.75rem; color:var(--clr-text-muted)">
-                    ↩️ Unpay
+                : `<button class="btn btn-ghost btn-sm btn-revert-paid" data-id="${c.id}" title="Revert to Non-Paid" style="font-size:0.75rem; padding:4px 8px; color:var(--clr-text-muted)">
+                    Unpay
                    </button>`
             }
-            <button class="btn btn-ghost btn-sm btn-del-comm" data-id="${c.id}" title="Delete commission" style="color:var(--clr-danger)">
-              🗑
+            <button class="btn btn-danger btn-sm btn-del-comm" data-id="${c.id}" title="Delete commission" style="padding:5px 8px">
+              ${icon('alert-circle', { size: 13 })}
             </button>
           </div>
         </td>

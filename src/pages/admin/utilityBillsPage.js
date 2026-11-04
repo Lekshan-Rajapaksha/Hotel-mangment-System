@@ -1,6 +1,7 @@
 import { subscribeUtilityBills, deleteUtilityBill } from '../../services/utilityBillService.js';
 import { formatCurrency, formatDate } from '../../utils/dateHelpers.js';
 import { showToast, showSpinner, hideSpinner } from '../../utils/toast.js';
+import { icon } from '../../components/icons.js';
 
 let unsubscribe = null;
 let allUtilityBills = [];
@@ -9,7 +10,7 @@ export function renderUtilityBillsPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <div>
-        <h1 class="page-title">💡 Utility Bills</h1>
+        <h1 class="page-title">${icon('zap', { size: 26 })} Utility & Facility Bills</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">Overview of all utility expenses</div>
       </div>
       <div class="flex gap-2 items-center" style="flex-wrap:wrap">
@@ -30,15 +31,15 @@ export function renderUtilityBillsPage(container) {
       <!-- Summary Strip -->
       <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px" id="utility-summary">
         <div class="stat-card">
-          <div class="stat-icon blue">💰</div>
+          <div class="stat-icon blue">${icon('receipt', { size: 24 })}</div>
           <div><div class="stat-label">Total Expenses</div><div class="stat-value" id="us-total">—</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon orange">⚡</div>
+          <div class="stat-icon orange">${icon('zap', { size: 24 })}</div>
           <div><div class="stat-label">Light Bills</div><div class="stat-value" id="us-light">—</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon green">💧</div>
+          <div class="stat-icon green">${icon('droplet', { size: 24 })}</div>
           <div><div class="stat-label">Water Bills</div><div class="stat-value" id="us-water">—</div></div>
         </div>
       </div>
@@ -127,20 +128,22 @@ function renderTable(bills) {
   let mobileHtml = '';
 
   bills.forEach((b) => {
-    let typeEmoji = '🧾';
-    if (b.type === 'Light') typeEmoji = '⚡';
-    if (b.type === 'Water') typeEmoji = '💧';
-    if (b.type === 'Internet') typeEmoji = '🌐';
-    if (b.type === 'Gas') typeEmoji = '🔥';
+    let typeIcon = icon('receipt', { size: 14 });
+    if (b.type === 'Light') typeIcon = icon('zap', { size: 14 });
+    else if (b.type === 'Water') typeIcon = icon('droplet', { size: 14 });
+    else if (b.type === 'Internet') typeIcon = icon('utility', { size: 14 });
+    else if (b.type === 'Gas') typeIcon = icon('zap', { size: 14 });
 
     tableHtml += `
       <tr>
         <td data-label="Date">${formatDate(b.date)}</td>
-        <td data-label="Type"><span style="font-weight:600">${typeEmoji} ${b.type}</span></td>
-        <td data-label="Description">${b.description || '-'}</td>
-        <td data-label="Amount" style="font-weight:700; color:var(--clr-primary)">${formatCurrency(b.amount)}</td>
+        <td data-label="Type"><span class="badge badge-primary" style="display:inline-flex; align-items:center; gap:5px">${typeIcon} ${b.type}</span></td>
+        <td data-label="Description">${b.description || '—'}</td>
+        <td data-label="Amount" class="numeric" style="font-weight:700; color:var(--clr-primary)">${formatCurrency(b.amount)}</td>
         <td data-label="Actions">
-          <button class="btn btn-sm btn-danger delete-ubill-btn" data-id="${b.id}">Delete</button>
+          <button class="btn btn-sm btn-danger delete-ubill-btn" data-id="${b.id}" style="display:inline-flex; align-items:center; gap:4px; padding:5px 9px; font-size:0.78rem">
+            ${icon('alert-circle', { size: 13 })} Delete
+          </button>
         </td>
       </tr>
     `;
@@ -149,7 +152,7 @@ function renderTable(bills) {
       <div class="card" style="margin-bottom:12px">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px">
           <div>
-            <div style="font-weight:700">${typeEmoji} ${b.type}</div>
+            <div style="font-weight:700; display:inline-flex; align-items:center; gap:5px">${typeIcon} ${b.type}</div>
             <div style="font-size:0.8rem; color:var(--clr-text-muted)">${formatDate(b.date)}</div>
           </div>
           <div style="font-weight:800; font-size:1.1rem; color:var(--clr-primary)">

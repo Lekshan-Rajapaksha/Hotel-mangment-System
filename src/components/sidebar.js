@@ -5,6 +5,7 @@ import { showToast } from '../utils/toast.js';
 import { subscribePendingCount } from '../services/deleteRequestService.js';
 import { subscribeUnreadPriceNotifCount } from '../services/priceService.js';
 import { subscribePendingCommissionEditCount } from '../services/commissionEditRequestService.js';
+import { icon } from './icons.js';
 import logoImg from '../assets/Blue cove hiriketiya (1).png';
 
 const COLLAPSED_KEY = 'sidebar_collapsed';
@@ -15,23 +16,23 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
   const isCollapsed = localStorage.getItem(COLLAPSED_KEY) === 'true';
 
   const adminLinks = [
-    { id: 'calendar',      icon: '📅', label: 'Room Calendar' },
-    { id: 'roomsummary',  icon: '🏨', label: 'Room Summary' },
-    { id: 'analytics',    icon: '📊', label: 'Analytics' },
-    { id: 'bills',        icon: '🧾', label: 'All Bills' },
-    { id: 'utility',      icon: '💡', label: 'Utility' },
-    { id: 'employees',    icon: '👥', label: 'Employees' },
-    { id: 'commission',   icon: '💼', label: 'Commission' },
-    { id: 'notifications', icon: '🔔', label: 'Notifications', badge: true },
+    { id: 'calendar',      icon: icon('calendar'),      label: 'Room Calendar' },
+    { id: 'roomsummary',  icon: icon('bed'),           label: 'Room Summary' },
+    { id: 'analytics',    icon: icon('analytics'),     label: 'Analytics' },
+    { id: 'bills',        icon: icon('receipt'),       label: 'All Bills' },
+    { id: 'utility',      icon: icon('zap'),           label: 'Utility' },
+    { id: 'employees',    icon: icon('users'),         label: 'Employees' },
+    { id: 'commission',   icon: icon('award'),         label: 'Commission' },
+    { id: 'notifications', icon: icon('bell'),         label: 'Notifications', badge: true },
   ];
 
   const receptionLinks = [
-    { id: 'calendar', icon: '📅', label: 'Room Calendar' },
-    { id: 'bookings', icon: '📋', label: 'My Bookings' },
-    { id: 'pricing',  icon: '💵', label: 'Price Log' },
-    { id: 'utilitybills', icon: '🧾', label: 'Bills' },
-    { id: 'employees', icon: '👥', label: 'Employees' },
-    { id: 'commission', icon: '💼', label: 'Commission' },
+    { id: 'calendar',     icon: icon('calendar'),      label: 'Room Calendar' },
+    { id: 'bookings',     icon: icon('ticket'),        label: 'My Bookings' },
+    { id: 'pricing',      icon: icon('tag'),           label: 'Price Log' },
+    { id: 'utilitybills', icon: icon('zap'),           label: 'Bills' },
+    { id: 'employees',    icon: icon('users'),         label: 'Employees' },
+    { id: 'commission',   icon: icon('award'),         label: 'Commission' },
   ];
 
   const links = isAdmin ? adminLinks : receptionLinks;
@@ -70,11 +71,13 @@ export function renderSidebar(role, currentPage, onNavigate, userName) {
           <div class="sidebar-user-avatar">${initials}</div>
           <div class="sidebar-user-info">
             <div class="sidebar-user-name">${userName || 'User'}</div>
-            <div class="sidebar-user-role">${isAdmin ? '🔑 Admin' : '🎯 Receptionist'}</div>
+            <div class="sidebar-user-role" style="display:inline-flex; align-items:center; gap:4px">
+              ${isAdmin ? `${icon('shield', { size: 14 })} Admin` : `${icon('user', { size: 14 })} Receptionist`}
+            </div>
           </div>
         </div>
         <button class="btn btn-ghost w-full" id="logout-btn" title="Sign Out">
-          <span style="flex-shrink:0">🚪</span>
+          <span style="flex-shrink:0; display:inline-flex; align-items:center">${icon('logout', { size: 17 })}</span>
           <span class="sidebar-link-text">Sign Out</span>
         </button>
       </div>
@@ -164,8 +167,10 @@ function applySidebarState() {
 export function renderMobileHeader(title) {
   return `
     <header class="mobile-header" id="mobile-header">
-      <button class="hamburger" id="hamburger-btn">☰</button>
-      <span style="font-weight:700; font-size:0.95rem; color:var(--clr-text)">${title}</span>
+      <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation" style="display:inline-flex; align-items:center; justify-content:center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+      <span style="font-family:var(--font-display); font-weight:800; font-size:1rem; color:var(--clr-text)">${title}</span>
     </header>
   `;
 }
