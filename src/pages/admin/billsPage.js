@@ -9,6 +9,23 @@ import { icon } from '../../components/icons.js';
 let unsubscribe = null;
 let allBookings = [];
 
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function buildMonthOptions() {
+  // Builds a sorted list of YYYY-MM values present in allBookings, plus a current-month option
+  const now = new Date();
+  const months = new Set();
+  allBookings.forEach(b => {
+    const d = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+    if (!isNaN(d)) {
+      months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+  });
+  // Always include current month
+  months.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+  return [...months].sort().reverse();
+}
+
 export function renderBillsPage(container) {
   container.innerHTML = `
     <div class="page-header">
@@ -21,6 +38,9 @@ export function renderBillsPage(container) {
           <span style="display:inline-flex; align-items:center">${icon('search', { size: 16 })}</span>
           <input type="text" id="bills-search" placeholder="Search guest, room…" />
         </div>
+        <select class="form-control" id="bills-filter-month" style="width:140px">
+          <option value="">All Months</option>
+        </select>
         <select class="form-control" id="bills-status" style="width:130px">
           <option value="all">All Bookings</option>
           <option value="active">Active Only</option>
@@ -85,7 +105,7 @@ export function renderBillsPage(container) {
   `;
 
   // Bind filters
-  ['bills-search','bills-status','bills-filter-room'].forEach(id => {
+  ['bills-search','bills-status','bills-filter-room','bills-filter-month'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', applyFilters);
     document.getElementById(id)?.addEventListener('change', applyFilters);
   });
@@ -93,6 +113,18 @@ export function renderBillsPage(container) {
   if (unsubscribe) unsubscribe();
   unsubscribe = subscribeAllBookings((bookings) => {
     allBookings = bookings;
+    // Populate month dropdown dynamically
+    const sel = document.getElementById('bills-filter-month');
+    if (sel) {
+      const prev = sel.value;
+      sel.innerHTML = `<option value="">All Months</option>` +
+        buildMonthOptions().map(ym => {
+          const [y, m] = ym.split('-');
+          const label = `${MONTH_NAMES[Number(m) - 1]} ${y}`;
+          return `<option value="${ym}">${label}</option>`;
+        }).join('');
+      if (prev) sel.value = prev;
+    }
     applyFilters();
     updateSummary(bookings.filter(b => b.status === 'active'));
   });
@@ -113,6 +145,7 @@ function applyFilters() {
   const search = (document.getElementById('bills-search')?.value || '').toLowerCase();
   const statusFilter = document.getElementById('bills-status')?.value || 'all';
   const roomFilter = document.getElementById('bills-filter-room')?.value || '';
+  const monthFilter = document.getElementById('bills-filter-month')?.value || '';
 
   let filtered = allBookings;
 
@@ -122,6 +155,13 @@ function applyFilters() {
   if (roomFilter) {
     filtered = filtered.filter(b => String(b.roomNumber) === roomFilter);
   }
+  if (monthFilter) {
+    const [fy, fm] = monthFilter.split('-').map(Number);
+    filtered = filtered.filter(b => {
+      const d = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+      return d.getFullYear() === fy && (d.getMonth() + 1) === fm;
+    });
+  }
   if (search) {
     filtered = filtered.filter(b =>
       (b.guestName||'').toLowerCase().includes(search) ||
@@ -130,6 +170,10 @@ function applyFilters() {
       String(b.roomNumber).includes(search)
     );
   }
+
+  // Update summary to reflect filtered set, not entire active set
+  const activeFilt = filtered.filter(b => b.status === 'active');
+  updateSummary(activeFilt.length ? activeFilt : (monthFilter ? [] : allBookings.filter(b => b.status === 'active')));
 
   renderTable(filtered);
 }
