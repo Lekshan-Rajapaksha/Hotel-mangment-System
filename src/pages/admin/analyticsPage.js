@@ -4,7 +4,7 @@ import { subscribeUtilityBills } from '../../services/utilityBillService.js';
 import { subscribeAllSalaryPayments, subscribeEmployees, deleteSalaryPayment } from '../../services/employeeService.js';
 import { subscribeCommissions } from '../../services/commissionService.js';
 import { openPrintSalaryBill } from '../../components/printSalaryBill.js';
-import { formatCurrency, formatDate, nightCount, MONTHS } from '../../utils/dateHelpers.js';
+import { formatCurrency, formatDate, nightCount, MONTHS, toDateStr } from '../../utils/dateHelpers.js';
 import { showToast } from '../../utils/toast.js';
 import { icon } from '../../components/icons.js';
 import Chart from 'chart.js/auto';
@@ -23,6 +23,40 @@ let allEmployees = [];
 let allCommissions = [];
 
 let activeExpenseTab = 'payroll'; // 'payroll' | 'bills' | 'all'
+let currentDateFilter = null; // null for Month/Year, or 'YYYY-MM-DD'
+
+function getRecordDateStr(obj) {
+  if (!obj) return '';
+  const raw = obj.date || obj.paidAt || obj.createdAt;
+  if (!raw) return '';
+  if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10);
+  }
+  const d = raw?.toDate ? raw.toDate() : new Date(raw);
+  return isNaN(d.getTime()) ? '' : toDateStr(d);
+}
+
+function getBookingCiCoStr(b) {
+  let ciStr = '';
+  let coStr = '';
+  if (b.checkIn) {
+    if (typeof b.checkIn === 'string' && /^\d{4}-\d{2}-\d{2}/.test(b.checkIn)) {
+      ciStr = b.checkIn.slice(0, 10);
+    } else {
+      const d = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+      if (!isNaN(d.getTime())) ciStr = toDateStr(d);
+    }
+  }
+  if (b.checkOut) {
+    if (typeof b.checkOut === 'string' && /^\d{4}-\d{2}-\d{2}/.test(b.checkOut)) {
+      coStr = b.checkOut.slice(0, 10);
+    } else {
+      const d = b.checkOut?.toDate ? b.checkOut.toDate() : new Date(b.checkOut);
+      if (!isNaN(d.getTime())) coStr = toDateStr(d);
+    }
+  }
+  return { ciStr, coStr };
+}
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -37,30 +71,55 @@ export function renderAnalyticsPage(container) {
   const currentYear = new Date().getFullYear();
 
   container.innerHTML = `
-    <div class="page-header">
+    <div class="page-header" style="flex-wrap:wrap; gap:12px">
       <div>
         <h1 class="page-title">${icon('analytics', { size: 26 })} Analytics & Financial Overview</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">
           Business insights, income, expenses, net profit, payroll breakdown, and hotel performance metrics
         </div>
       </div>
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
-        <select class="form-control" id="analytics-month" style="width:160px">
-          <option value="all" selected>All Months (${currentYear})</option>
-          ${MONTHS.map((m, idx) => `<option value="${idx}">${m}</option>`).join('')}
-        </select>
-        <select class="form-control" id="analytics-year" style="width:110px">
-          ${[0, 1, 2].map(i => {
-            const y = currentYear - i;
-            return `<option value="${y}" ${i === 0 ? 'selected' : ''}>${y}</option>`;
-          }).join('')}
-        </select>
+      <div class="flex gap-2 items-center" style="flex-wrap:wrap">
+        <!-- Quick Day & Specific Date Filter -->
+        <div class="flex gap-1 items-center" style="background:var(--clr-surface); border:1.5px solid var(--clr-border); border-radius:var(--radius); padding:3px 8px; flex-wrap:wrap">
+          <button type="button" class="btn btn-sm btn-ghost analytics-quick-btn" id="btn-filter-today" style="padding:4px 10px; font-size:0.8rem; font-weight:600; border-radius:6px" title="Filter Today">Today</button>
+          <button type="button" class="btn btn-sm btn-ghost analytics-quick-btn" id="btn-filter-yesterday" style="padding:4px 10px; font-size:0.8rem; font-weight:600; border-radius:6px" title="Filter Yesterday">Yesterday</button>
+          <div style="width:1px; height:18px; background:var(--clr-border); margin:0 4px"></div>
+          <span style="color:var(--clr-text-muted); display:inline-flex; align-items:center" title="Select Specific Date">${icon('calendar', { size: 15 })}</span>
+          <input type="date" id="analytics-date-picker" style="border:none; background:transparent; padding:4px 6px; font-size:0.82rem; color:var(--clr-text); font-family:var(--font); outline:none; cursor:pointer" title="Pick any selected date" />
+          <button type="button" class="btn btn-sm btn-ghost" id="btn-clear-date" style="display:none; padding:3px 7px; font-size:0.75rem; color:var(--clr-danger); border:1px solid rgba(239,68,68,0.25); border-radius:4px" title="Clear Date Filter (Switch to Monthly)">✕</button>
+        </div>
+
+        <!-- Month & Year Controls -->
+        <div class="flex gap-2 items-center" id="analytics-month-year-group">
+          <select class="form-control" id="analytics-month" style="width:150px">
+            <option value="all" selected>All Months (${currentYear})</option>
+            ${MONTHS.map((m, idx) => `<option value="${idx}">${m}</option>`).join('')}
+          </select>
+          <select class="form-control" id="analytics-year" style="width:100px">
+            ${[0, 1, 2].map(i => {
+    const y = currentYear - i;
+    return `<option value="${y}" ${i === 0 ? 'selected' : ''}>${y}</option>`;
+  }).join('')}
+          </select>
+        </div>
+
         <button id="btn-download-pdf" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:6px; font-size:0.85rem; padding:7px 14px; white-space:nowrap;">
           ${icon('download', { size: 16 })} Download PDF
         </button>
       </div>
     </div>
     <div class="page-body">
+
+      <!-- Active Single-Date Filter Banner -->
+      <div id="analytics-active-date-banner" style="display:none; margin-bottom:18px; background:linear-gradient(135deg, rgba(79,114,245,0.08), rgba(99,102,241,0.05)); border:1.5px solid rgba(79,114,245,0.25); border-radius:var(--radius); padding:10px 16px; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <div style="display:inline-flex; align-items:center; gap:8px">
+          <span style="color:var(--clr-primary); display:inline-flex; align-items:center">${icon('calendar', { size: 18 })}</span>
+          <span id="analytics-active-date-text" style="font-size:0.88rem; font-weight:700; color:var(--clr-text)"></span>
+        </div>
+        <button type="button" class="btn btn-sm btn-ghost" id="btn-banner-reset-date" style="padding:4px 12px; font-size:0.78rem; font-weight:600; border:1px solid var(--clr-border);">
+          Switch to Monthly / Year View
+        </button>
+      </div>
 
       <!-- Hero Financial KPI Cards -->
       <div class="financial-hero-grid">
@@ -69,8 +128,8 @@ export function renderAnalyticsPage(container) {
           <div class="stat-icon green">${icon('dollar-sign', { size: 26 })}</div>
           <div style="flex:1">
             <div style="display:flex; justify-content:space-between; align-items:center">
-              <div class="stat-label">Total Income (Bookings)</div>
-              <span class="badge badge-success" style="font-size:0.65rem">Revenue</span>
+              <div class="stat-label" id="label-fin-income">Total Income (Bookings)</div>
+              <span class="badge badge-success" id="badge-fin-income" style="font-size:0.65rem">Revenue</span>
             </div>
             <div class="stat-value" id="fin-income" style="color:var(--clr-success)">—</div>
             <div class="stat-sub" id="fin-income-sub" style="color:var(--clr-text-muted)">Loading bookings...</div>
@@ -82,7 +141,7 @@ export function renderAnalyticsPage(container) {
           <div class="stat-icon red">${icon('trending-down', { size: 26 })}</div>
           <div style="flex:1">
             <div style="display:flex; justify-content:space-between; align-items:center">
-              <div class="stat-label">Total Expenses</div>
+              <div class="stat-label" id="label-fin-expenses">Total Expenses</div>
               <span class="badge badge-danger" style="font-size:0.65rem">Outflow</span>
             </div>
             <div class="stat-value" id="fin-expenses" style="color:var(--clr-danger)">—</div>
@@ -95,7 +154,7 @@ export function renderAnalyticsPage(container) {
           <div class="stat-icon teal" id="fin-profit-icon">${icon('award', { size: 26 })}</div>
           <div style="flex:1">
             <div style="display:flex; justify-content:space-between; align-items:center">
-              <div class="stat-label">Net Profit</div>
+              <div class="stat-label" id="label-fin-profit">Net Profit</div>
               <span class="badge badge-primary" id="fin-profit-badge" style="font-size:0.65rem">Profit</span>
             </div>
             <div class="stat-value" id="fin-profit" style="color:var(--clr-primary)">—</div>
@@ -274,8 +333,12 @@ export function renderAnalyticsPage(container) {
   // Bind filter change listeners
   const yearSelect = document.getElementById('analytics-year');
   const monthSelect = document.getElementById('analytics-month');
+  const datePicker = document.getElementById('analytics-date-picker');
 
   yearSelect?.addEventListener('change', () => {
+    currentDateFilter = null;
+    if (datePicker) datePicker.value = '';
+    updateFilterControls();
     const y = yearSelect.value;
     const optAll = monthSelect?.querySelector('option[value="all"]');
     if (optAll) optAll.textContent = `All Months (${y})`;
@@ -285,6 +348,57 @@ export function renderAnalyticsPage(container) {
   });
 
   monthSelect?.addEventListener('change', () => {
+    currentDateFilter = null;
+    if (datePicker) datePicker.value = '';
+    updateFilterControls();
+    refreshData();
+  });
+
+  // Quick buttons: Today & Yesterday
+  document.getElementById('btn-filter-today')?.addEventListener('click', () => {
+    const todayStr = toDateStr(new Date());
+    currentDateFilter = todayStr;
+    if (datePicker) datePicker.value = todayStr;
+    updateFilterControls();
+    refreshData();
+  });
+
+  document.getElementById('btn-filter-yesterday')?.addEventListener('click', () => {
+    const yest = new Date();
+    yest.setDate(yest.getDate() - 1);
+    const yestStr = toDateStr(yest);
+    currentDateFilter = yestStr;
+    if (datePicker) datePicker.value = yestStr;
+    updateFilterControls();
+    refreshData();
+  });
+
+  // Date picker input
+  const handleDateChange = () => {
+    if (datePicker && datePicker.value) {
+      currentDateFilter = datePicker.value;
+    } else {
+      currentDateFilter = null;
+    }
+    updateFilterControls();
+    refreshData();
+  };
+  datePicker?.addEventListener('change', handleDateChange);
+  datePicker?.addEventListener('input', handleDateChange);
+
+  // Clear date button
+  document.getElementById('btn-clear-date')?.addEventListener('click', () => {
+    currentDateFilter = null;
+    if (datePicker) datePicker.value = '';
+    updateFilterControls();
+    refreshData();
+  });
+
+  // Banner reset button
+  document.getElementById('btn-banner-reset-date')?.addEventListener('click', () => {
+    currentDateFilter = null;
+    if (datePicker) datePicker.value = '';
+    updateFilterControls();
     refreshData();
   });
 
@@ -297,6 +411,48 @@ export function renderAnalyticsPage(container) {
   setupExpenseTabs();
 
   startSubscriptions();
+}
+
+function updateFilterControls() {
+  const todayStr = toDateStr(new Date());
+  const yest = new Date();
+  yest.setDate(yest.getDate() - 1);
+  const yestStr = toDateStr(yest);
+
+  const btnToday = document.getElementById('btn-filter-today');
+  const btnYesterday = document.getElementById('btn-filter-yesterday');
+  const btnClearDate = document.getElementById('btn-clear-date');
+  const banner = document.getElementById('analytics-active-date-banner');
+  const bannerText = document.getElementById('analytics-active-date-text');
+
+  // Active state on quick buttons
+  if (btnToday) {
+    const isToday = currentDateFilter === todayStr;
+    btnToday.style.background = isToday ? 'var(--clr-primary)' : '';
+    btnToday.style.color = isToday ? '#ffffff' : '';
+  }
+  if (btnYesterday) {
+    const isYest = currentDateFilter === yestStr;
+    btnYesterday.style.background = isYest ? 'var(--clr-primary)' : '';
+    btnYesterday.style.color = isYest ? '#ffffff' : '';
+  }
+
+  // Toggle clear button and banner
+  if (currentDateFilter) {
+    if (btnClearDate) btnClearDate.style.display = 'inline-flex';
+    if (banner && bannerText) {
+      banner.style.display = 'flex';
+      let tag = 'Selected Date';
+      if (currentDateFilter === todayStr) tag = 'Today';
+      else if (currentDateFilter === yestStr) tag = 'Yesterday';
+      const [y, m, d] = currentDateFilter.split('-').map(Number);
+      const formatted = formatDate(new Date(y, m - 1, d), true);
+      bannerText.innerHTML = `Showing Financial Overview for: <strong style="color:var(--clr-primary)">${tag} (${formatted})</strong>`;
+    }
+  } else {
+    if (btnClearDate) btnClearDate.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+  }
 }
 
 function setupExpenseTabs() {
@@ -498,7 +654,7 @@ function refreshData() {
   const monthlyExpenses = monthlyBills.map((b, i) => b + monthlySalaries[i] + monthlyCommissions[i]);
   const monthlyProfit = monthlyIncome.map((inc, i) => inc - monthlyExpenses[i]);
 
-  // Selected period totals (Year or specific month)
+  // Selected period totals (Daily Date Filter, Year or specific month)
   let periodIncome = 0;
   let periodBills = 0;
   let periodSalaries = 0;
@@ -510,7 +666,57 @@ function refreshData() {
   let periodSalariesList = [];
   let periodCommissionsList = [];
 
-  if (monthFilter === 'all') {
+  let checkInBookingsCount = 0;
+  let occupiedRoomsCount = 0;
+  let targetDateLabel = '';
+
+  if (currentDateFilter) {
+    const targetDate = currentDateFilter;
+    const [tY, tM, tD] = targetDate.split('-').map(Number);
+    const dateObj = new Date(tY, tM - 1, tD);
+    targetDateLabel = formatDate(dateObj, true);
+
+    // Bookings checking in on targetDate (generates revenue for the day)
+    const checkInBookings = allBookings.filter(b => {
+      if (b.status !== 'active') return false;
+      const { ciStr } = getBookingCiCoStr(b);
+      return ciStr === targetDate;
+    });
+
+    // In-house bookings active on targetDate
+    const activeInHouseBookings = allBookings.filter(b => {
+      if (b.status !== 'active') return false;
+      const { ciStr, coStr } = getBookingCiCoStr(b);
+      return ciStr && coStr && ciStr <= targetDate && coStr >= targetDate;
+    });
+
+    const occupiedRooms = new Set();
+    activeInHouseBookings.forEach(b => {
+      if (b.roomNumber) occupiedRooms.add(String(b.roomNumber));
+    });
+
+    checkInBookingsCount = checkInBookings.length;
+    occupiedRoomsCount = occupiedRooms.size;
+
+    periodIncome = checkInBookings.reduce((s, b) => s + Number(b.fullPrice || 0), 0);
+    // Period bookings for listing: all bookings active or checking in on this date
+    periodBookings = activeInHouseBookings.length > 0 ? activeInHouseBookings : checkInBookings;
+
+    // Utility bills on targetDate
+    periodBillsList = allUtilityBills.filter(b => getRecordDateStr(b) === targetDate);
+    periodBills = periodBillsList.reduce((s, b) => s + Number(b.amount || 0), 0);
+
+    // Salary payments on targetDate
+    periodSalariesList = allSalaryPayments.filter(p => getRecordDateStr(p) === targetDate);
+    periodSalaries = periodSalariesList.reduce((s, p) => s + Number(p.totalPaid || p.amount || 0), 0);
+
+    // Commissions on targetDate
+    periodCommissionsList = allCommissions.filter(c => c.status === 'paid' && getRecordDateStr(c) === targetDate);
+    periodCommissions = periodCommissionsList.reduce((s, c) => s + Number(c.amount || 0), 0);
+
+    periodExpenses = periodBills + periodSalaries + periodCommissions;
+    periodProfit = periodIncome - periodExpenses;
+  } else if (monthFilter === 'all') {
     periodIncome = monthlyIncome.reduce((s, v) => s + v, 0);
     periodBills = monthlyBills.reduce((s, v) => s + v, 0);
     periodSalaries = monthlySalaries.reduce((s, v) => s + v, 0);
@@ -592,7 +798,11 @@ function refreshData() {
     commissionsCount: periodCommissionsList.length,
     bookings: periodBookings,
     year,
-    monthFilter
+    monthFilter,
+    currentDateFilter,
+    checkInBookingsCount,
+    occupiedRoomsCount,
+    targetDateLabel
   });
 
   // Update Expense Summary Section (Who got paid how much, utility bills, commissions, combined)
@@ -632,23 +842,59 @@ function updateFinancialCards({
   profit,
   bills,
   salaries,
+  commissions,
   bookingsCount,
   billsCount,
   salariesCount,
+  commissionsCount,
   bookings,
   year,
-  monthFilter
+  monthFilter,
+  currentDateFilter,
+  checkInBookingsCount = 0,
+  occupiedRoomsCount = 0,
+  targetDateLabel = ''
 }) {
   const marginPct = income > 0 ? ((profit / income) * 100).toFixed(1) : (expenses > 0 ? '-100.0' : '0.0');
   const isProfit = profit >= 0;
+
+  // Dynamic labels based on whether a specific day is selected
+  const lblIncome = document.getElementById('label-fin-income');
+  const lblExpenses = document.getElementById('label-fin-expenses');
+  const lblProfit = document.getElementById('label-fin-profit');
+  const badgeIncome = document.getElementById('badge-fin-income');
+
+  if (currentDateFilter) {
+    const todayStr = toDateStr(new Date());
+    const yest = new Date();
+    yest.setDate(yest.getDate() - 1);
+    const yestStr = toDateStr(yest);
+    let tag = '';
+    if (currentDateFilter === todayStr) tag = ' (Today)';
+    else if (currentDateFilter === yestStr) tag = ' (Yesterday)';
+
+    if (lblIncome) lblIncome.textContent = `Total Income${tag}`;
+    if (lblExpenses) lblExpenses.textContent = `Total Expenses${tag}`;
+    if (lblProfit) lblProfit.textContent = `Net Profit${tag}`;
+    if (badgeIncome) badgeIncome.textContent = 'Daily Inflow';
+  } else {
+    if (lblIncome) lblIncome.textContent = 'Total Income (Bookings)';
+    if (lblExpenses) lblExpenses.textContent = 'Total Expenses';
+    if (lblProfit) lblProfit.textContent = 'Net Profit';
+    if (badgeIncome) badgeIncome.textContent = 'Revenue';
+  }
 
   // 1. Income Card
   const incEl = document.getElementById('fin-income');
   const incSub = document.getElementById('fin-income-sub');
   if (incEl) incEl.textContent = formatCurrency(income);
   if (incSub) {
-    const avg = bookingsCount ? Math.round(income / bookingsCount) : 0;
-    incSub.textContent = `${bookingsCount} bookings · Avg ${formatCurrency(avg)}/booking`;
+    if (currentDateFilter) {
+      incSub.textContent = `${checkInBookingsCount} check-in(s) · ${occupiedRoomsCount} room(s) occupied in-house`;
+    } else {
+      const avg = bookingsCount ? Math.round(income / bookingsCount) : 0;
+      incSub.textContent = `${bookingsCount} bookings · Avg ${formatCurrency(avg)}/booking`;
+    }
   }
 
   // 2. Expenses Card
@@ -656,7 +902,11 @@ function updateFinancialCards({
   const expSub = document.getElementById('fin-expenses-sub');
   if (expEl) expEl.textContent = formatCurrency(expenses);
   if (expSub) {
-    expSub.textContent = `Bills: ${formatCurrency(bills)} · Salaries: ${formatCurrency(salaries)}`;
+    if (currentDateFilter) {
+      expSub.textContent = `Bills: ${formatCurrency(bills)} · Salaries: ${formatCurrency(salaries)} · Comms: ${formatCurrency(commissions || 0)}`;
+    } else {
+      expSub.textContent = `Bills: ${formatCurrency(bills)} · Salaries: ${formatCurrency(salaries)}`;
+    }
   }
 
   // 3. Profit Card
@@ -690,36 +940,46 @@ function updateFinancialCards({
   const billsEl = document.getElementById('stat-bills');
   const billsSub = document.getElementById('stat-bills-sub');
   if (billsEl) billsEl.textContent = formatCurrency(bills);
-  if (billsSub) billsSub.textContent = `${billsCount} utility bills recorded`;
+  if (billsSub) billsSub.textContent = `${billsCount} utility bills ${currentDateFilter ? 'on this date' : 'recorded'}`;
 
   const salsEl = document.getElementById('stat-salaries');
   const salsSub = document.getElementById('stat-salaries-sub');
   if (salsEl) salsEl.textContent = formatCurrency(salaries);
-  if (salsSub) salsSub.textContent = `${salariesCount} payroll transactions`;
+  if (salsSub) salsSub.textContent = `${salariesCount} payroll payouts ${currentDateFilter ? 'on this date' : 'recorded'}`;
 
   const bksEl = document.getElementById('stat-bookings');
   const bksSub = document.getElementById('stat-bookings-sub');
-  if (bksEl) bksEl.textContent = bookingsCount;
+  if (bksEl) bksEl.textContent = currentDateFilter ? checkInBookingsCount : bookingsCount;
   if (bksSub) {
-    const paidCount = bookings.filter(b => Math.max(0, (Number(b.fullPrice)||0) - (Number(b.discountAmount)||0) - (Number(b.advancePaid)||0)) <= 0).length;
-    bksSub.textContent = `${paidCount} fully paid · ${bookingsCount - paidCount} with balance`;
+    if (currentDateFilter) {
+      bksSub.textContent = `${checkInBookingsCount} check-in(s) · ${occupiedRoomsCount} room(s) in-house`;
+    } else {
+      const paidCount = bookings.filter(b => Math.max(0, (Number(b.fullPrice) || 0) - (Number(b.discountAmount) || 0) - (Number(b.advancePaid) || 0)) <= 0).length;
+      bksSub.textContent = `${paidCount} fully paid · ${bookingsCount - paidCount} with balance`;
+    }
   }
 
   // Occupancy rate calculation
   const occEl = document.getElementById('stat-occ');
   const occSub = document.getElementById('stat-occ-sub');
-  const totalNights = bookings.reduce((s, b) => s + nightCount(b.checkIn, b.checkOut), 0);
-  
-  let daysInPeriod = 365;
-  if (monthFilter !== 'all') {
-    const m = parseInt(monthFilter);
-    daysInPeriod = new Date(year, m + 1, 0).getDate();
-  }
-  const maxNights = 7 * daysInPeriod;
-  const occPct = maxNights > 0 ? ((totalNights / maxNights) * 100).toFixed(1) : 0;
 
-  if (occEl) occEl.textContent = `${occPct}%`;
-  if (occSub) occSub.textContent = `${totalNights} room-nights booked of ${maxNights}`;
+  if (currentDateFilter) {
+    const occPct = ((occupiedRoomsCount / 7) * 100).toFixed(1);
+    if (occEl) occEl.textContent = `${occPct}%`;
+    if (occSub) occSub.textContent = `${occupiedRoomsCount} of 7 rooms occupied on this date`;
+  } else {
+    const totalNights = bookings.reduce((s, b) => s + nightCount(b.checkIn, b.checkOut), 0);
+    let daysInPeriod = 365;
+    if (monthFilter !== 'all') {
+      const m = parseInt(monthFilter);
+      daysInPeriod = new Date(year, m + 1, 0).getDate();
+    }
+    const maxNights = 7 * daysInPeriod;
+    const occPct = maxNights > 0 ? ((totalNights / maxNights) * 100).toFixed(1) : 0;
+
+    if (occEl) occEl.textContent = `${occPct}%`;
+    if (occSub) occSub.textContent = `${totalNights} room-nights booked of ${maxNights}`;
+  }
 }
 
 function renderExpenseSummarySection({
@@ -1229,17 +1489,17 @@ function updateCashFlowSummary(bookings, bills, salaries, commissions = 0, profi
 }
 
 const CHART_COLORS = {
-  primary:     'rgba(79,114,245,0.85)',
+  primary: 'rgba(79,114,245,0.85)',
   primaryLine: '#4f72f5',
-  accent:      'rgba(245,105,42,0.85)',
-  success:     'rgba(34,197,94,0.85)',
+  accent: 'rgba(245,105,42,0.85)',
+  success: 'rgba(34,197,94,0.85)',
   successLine: '#22c55e',
-  danger:      'rgba(239,68,68,0.85)',
-  dangerLine:  '#ef4444',
-  purple:      'rgba(124,92,246,0.85)',
-  pink:        'rgba(244,114,182,0.85)',
-  teal:        'rgba(20,184,166,0.85)',
-  yellow:      'rgba(245,158,11,0.85)',
+  danger: 'rgba(239,68,68,0.85)',
+  dangerLine: '#ef4444',
+  purple: 'rgba(124,92,246,0.85)',
+  pink: 'rgba(244,114,182,0.85)',
+  teal: 'rgba(20,184,166,0.85)',
+  yellow: 'rgba(245,158,11,0.85)',
 };
 
 const chartDefaults = {
@@ -1666,15 +1926,15 @@ function renderRecentSummary(bookings) {
         </thead>
         <tbody>
           ${recent.map(b => {
-            const nights = nightCount(b.checkIn, b.checkOut);
-            const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
-            const co = b.checkOut?.toDate ? b.checkOut.toDate() : new Date(b.checkOut);
-            const now = new Date();
-            const isPast = co < now;
-            const isCurrent = ci <= now && co >= now;
-            const statusLabel = isPast ? '✅ Done' : isCurrent ? '🟢 Active' : '🔵 Upcoming';
-            const statusColor = isPast ? 'var(--clr-text-muted)' : isCurrent ? 'var(--clr-success)' : 'var(--clr-primary)';
-            return `
+    const nights = nightCount(b.checkIn, b.checkOut);
+    const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+    const co = b.checkOut?.toDate ? b.checkOut.toDate() : new Date(b.checkOut);
+    const now = new Date();
+    const isPast = co < now;
+    const isCurrent = ci <= now && co >= now;
+    const statusLabel = isPast ? '✅ Done' : isCurrent ? '🟢 Active' : '🔵 Upcoming';
+    const statusColor = isPast ? 'var(--clr-text-muted)' : isCurrent ? 'var(--clr-success)' : 'var(--clr-primary)';
+    return `
               <tr>
                 <td data-label="Guest">
                   <div style="font-weight:600">${b.guestName || 'Guest'}</div>
@@ -1688,7 +1948,7 @@ function renderRecentSummary(bookings) {
                 <td data-label="Status" style="color:${statusColor};font-weight:600;font-size:0.82rem">${statusLabel}</td>
               </tr>
             `;
-          }).join('')}
+  }).join('')}
         </tbody>
       </table>
     </div>
@@ -1697,15 +1957,31 @@ function renderRecentSummary(bookings) {
 
 // ─── PDF / Print Report ──────────────────────────────────────────────────────
 
-/** Called from the print window's dropdowns via window.opener.generateReport(year, monthFilter) */
-function generateReport(year, monthFilter) {
-  year        = parseInt(year);
+/** Called from the print window's dropdowns via window.opener.generateReport(year, monthFilter, singleDate) */
+function generateReport(year, monthFilter, singleDate = null) {
+  year = parseInt(year);
   monthFilter = String(monthFilter);
-  const isAllMonths = monthFilter === 'all';
-  const monthIdx    = isAllMonths ? null : parseInt(monthFilter);
-  const periodLabel = isAllMonths
-    ? `Full Year ${year}`
-    : `${MONTHS[monthIdx]} ${year}`;
+  const isSingleDate = Boolean(singleDate);
+  const isAllMonths = !isSingleDate && monthFilter === 'all';
+  const monthIdx = (!isSingleDate && !isAllMonths) ? parseInt(monthFilter) : null;
+
+  let periodLabel = '';
+  if (isSingleDate) {
+    const [sy, sm, sd] = singleDate.split('-').map(Number);
+    const sDateObj = new Date(sy, sm - 1, sd);
+    const todayStr = toDateStr(new Date());
+    const yest = new Date();
+    yest.setDate(yest.getDate() - 1);
+    const yestStr = toDateStr(yest);
+    let tag = '';
+    if (singleDate === todayStr) tag = 'Today — ';
+    else if (singleDate === yestStr) tag = 'Yesterday — ';
+    periodLabel = `Daily Report: ${tag}${formatDate(sDateObj, true)}`;
+  } else if (isAllMonths) {
+    periodLabel = `Full Year ${year}`;
+  } else {
+    periodLabel = `${MONTHS[monthIdx]} ${year}`;
+  }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const empMap = {};
@@ -1722,7 +1998,7 @@ function generateReport(year, monthFilter) {
     if (!raw) return '—';
     const d = raw?.toDate ? raw.toDate() : new Date(raw);
     if (isNaN(d.getTime())) return '—';
-    return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}`;
+    return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
   }
 
   // ── Year-level data ───────────────────────────────────────────────────────────
@@ -1756,28 +2032,49 @@ function generateReport(year, monthFilter) {
     return isAllMonths ? true : m === monthIdx;
   }
 
-  const books = isAllMonths ? yearBookings : yearBookings.filter(b => {
-    const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
-    return ci.getMonth() === monthIdx;
-  });
-  const bills = isAllMonths ? yearBills       : yearBills.filter(inMonth);
-  const sals  = isAllMonths ? yearSalaries    : yearSalaries.filter(salaryInMonth);
-  const comms = isAllMonths ? yearCommissions : yearCommissions.filter(inMonth);
+  const books = isSingleDate
+    ? allBookings.filter(b => {
+      if (b.status !== 'active') return false;
+      const { ciStr, coStr } = getBookingCiCoStr(b);
+      return ciStr === singleDate || (ciStr && coStr && ciStr <= singleDate && coStr >= singleDate);
+    })
+    : (isAllMonths ? yearBookings : yearBookings.filter(b => {
+      const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+      return ci.getMonth() === monthIdx;
+    }));
+
+  const bills = isSingleDate
+    ? allUtilityBills.filter(b => getRecordDateStr(b) === singleDate)
+    : (isAllMonths ? yearBills : yearBills.filter(inMonth));
+
+  const sals = isSingleDate
+    ? allSalaryPayments.filter(p => getRecordDateStr(p) === singleDate)
+    : (isAllMonths ? yearSalaries : yearSalaries.filter(salaryInMonth));
+
+  const comms = isSingleDate
+    ? allCommissions.filter(c => c.status === 'paid' && getRecordDateStr(c) === singleDate)
+    : (isAllMonths ? yearCommissions : yearCommissions.filter(inMonth));
 
   // ── Period totals ─────────────────────────────────────────────────────────────
-  const totalIncome      = books.reduce((s, b) => s + Number(b.fullPrice || 0), 0);
-  const totalBills       = bills.reduce((s, b) => s + Number(b.amount || 0), 0);
-  const totalSalaries    = sals.reduce((s, p) => s + Number(p.totalPaid || p.amount || 0), 0);
+  const totalIncome = isSingleDate
+    ? books.filter(b => {
+      const { ciStr } = getBookingCiCoStr(b);
+      return ciStr === singleDate;
+    }).reduce((s, b) => s + Number(b.fullPrice || 0), 0)
+    : books.reduce((s, b) => s + Number(b.fullPrice || 0), 0);
+
+  const totalBills = bills.reduce((s, b) => s + Number(b.amount || 0), 0);
+  const totalSalaries = sals.reduce((s, p) => s + Number(p.totalPaid || p.amount || 0), 0);
   const totalCommissions = comms.reduce((s, c) => s + Number(c.amount || 0), 0);
-  const totalExpenses    = totalBills + totalSalaries + totalCommissions;
-  const netProfit        = totalIncome - totalExpenses;
-  const margin           = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : '0.0';
-  const isProfit         = netProfit >= 0;
+  const totalExpenses = totalBills + totalSalaries + totalCommissions;
+  const netProfit = totalIncome - totalExpenses;
+  const margin = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : '0.0';
+  const isProfit = netProfit >= 0;
 
   // ── 12-month arrays ───────────────────────────────────────────────────────────
-  const mInc  = Array(12).fill(0);
+  const mInc = Array(12).fill(0);
   const mBill = Array(12).fill(0);
-  const mSal  = Array(12).fill(0);
+  const mSal = Array(12).fill(0);
   const mComm = Array(12).fill(0);
 
   yearBookings.forEach(b => {
@@ -1796,21 +2093,21 @@ function generateReport(year, monthFilter) {
     const d = resolveDate(c); if (d) mComm[d.getMonth()] += Number(c.amount || 0);
   });
 
-  const totYrInc  = mInc.reduce((s,v)=>s+v,0);
-  const totYrBill = mBill.reduce((s,v)=>s+v,0);
-  const totYrSal  = mSal.reduce((s,v)=>s+v,0);
-  const totYrComm = mComm.reduce((s,v)=>s+v,0);
-  const totYrExp  = totYrBill + totYrSal + totYrComm;
+  const totYrInc = mInc.reduce((s, v) => s + v, 0);
+  const totYrBill = mBill.reduce((s, v) => s + v, 0);
+  const totYrSal = mSal.reduce((s, v) => s + v, 0);
+  const totYrComm = mComm.reduce((s, v) => s + v, 0);
+  const totYrExp = totYrBill + totYrSal + totYrComm;
   const totYrProf = totYrInc - totYrExp;
 
   const now = new Date();
-  const generatedAt = fmtD(now) + ', ' + now.toLocaleTimeString('en-LK', { hour:'2-digit', minute:'2-digit' });
+  const generatedAt = fmtD(now) + ', ' + now.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' });
 
   // ── HTML Sections ─────────────────────────────────────────────────────────────
 
   const monthlyRowsHtml = MONTHS.map((name, i) => {
-    const inc  = mInc[i];
-    const exp  = mBill[i] + mSal[i] + mComm[i];
+    const inc = mInc[i];
+    const exp = mBill[i] + mSal[i] + mComm[i];
     const prof = inc - exp;
     const isSelected = !isAllMonths && i === monthIdx;
     const rowCls = isSelected ? 'row-selected' : (i % 2 === 0 ? 'row-even' : '');
@@ -1832,7 +2129,7 @@ function generateReport(year, monthFilter) {
     return db - da;
   });
   const incomeDetailHtml = sortedBooks.map((b, idx) => {
-    const nights  = nightCount(b.checkIn, b.checkOut);
+    const nights = nightCount(b.checkIn, b.checkOut);
     const advance = Number(b.advancePaid || 0);
     const balance = Math.max(0, Number(b.fullPrice || 0) - Number(b.discountAmount || 0) - advance);
     return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
@@ -1848,12 +2145,12 @@ function generateReport(year, monthFilter) {
     </tr>`;
   }).join('') || '<tr><td colspan="9" class="empty">No bookings for this period.</td></tr>';
 
-  const sortedSals = [...sals].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
+  const sortedSals = [...sals].sort((a, b) => (resolveDate(b)?.getTime() || 0) - (resolveDate(a)?.getTime() || 0));
   const salaryDetailHtml = sortedSals.map((p, idx) => {
     const emp = empMap[p.employeeId] || { name: p.employeeName || 'Staff Member', role: 'Staff' };
     const pMIdx = p.month !== undefined && p.month !== null ? parseInt(p.month) - 1 : null;
     const period = (pMIdx !== null && pMIdx >= 0 && pMIdx < 12)
-      ? `${MONTHS[pMIdx].slice(0,3)} ${p.year || year}`
+      ? `${MONTHS[pMIdx].slice(0, 3)} ${p.year || year}`
       : (p.year || year);
     return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
       <td>${fmtD(p.date || p.createdAt)}</td>
@@ -1865,8 +2162,8 @@ function generateReport(year, monthFilter) {
     </tr>`;
   }).join('') || '<tr><td colspan="6" class="empty">No salary payments for this period.</td></tr>';
 
-  const sortedBills = [...bills].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
-  const billTypeIcon = { Light:'⚡', Water:'💧', Internet:'🌐', Gas:'🔥', Maintenance:'🛠️' };
+  const sortedBills = [...bills].sort((a, b) => (resolveDate(b)?.getTime() || 0) - (resolveDate(a)?.getTime() || 0));
+  const billTypeIcon = { Light: '⚡', Water: '💧', Internet: '🌐', Gas: '🔥', Maintenance: '🛠️' };
   const billDetailHtml = sortedBills.map((b, idx) => {
     const icon = billTypeIcon[b.type] || '🧾';
     return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
@@ -1877,7 +2174,7 @@ function generateReport(year, monthFilter) {
     </tr>`;
   }).join('') || '<tr><td colspan="4" class="empty">No utility bills for this period.</td></tr>';
 
-  const sortedComms = [...comms].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
+  const sortedComms = [...comms].sort((a, b) => (resolveDate(b)?.getTime() || 0) - (resolveDate(a)?.getTime() || 0));
   const commDetailHtml = sortedComms.map((c, idx) => {
     return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
       <td>${fmtD(c.paidAt || c.date || c.createdAt)}</td>
@@ -2098,13 +2395,13 @@ function generateReport(year, monthFilter) {
 window._hotelGenerateReport = generateReport;
 
 function downloadFinancialPDF() {
-  const yearSelect  = document.getElementById('analytics-year');
+  const yearSelect = document.getElementById('analytics-year');
   const monthSelect = document.getElementById('analytics-month');
   if (!yearSelect) return;
 
-  const initYear        = yearSelect.value || String(new Date().getFullYear());
+  const initYear = yearSelect.value || String(new Date().getFullYear());
   const initMonthFilter = monthSelect ? monthSelect.value : 'all';
-  const currentYear     = new Date().getFullYear();
+  const currentYear = new Date().getFullYear();
 
   const printWin = window.open('', '_blank', 'width=1060,height=860,scrollbars=yes');
   if (!printWin) {
@@ -2122,7 +2419,7 @@ function downloadFinancialPDF() {
     return `<option value="${y}">${y}</option>`;
   }).join('');
 
-  const { html: reportHtml, periodLabel, generatedAt } = generateReport(initYear, initMonthFilter);
+  const { html: reportHtml, periodLabel, generatedAt } = generateReport(initYear, initMonthFilter, currentDateFilter);
 
   printWin.document.write(`<!DOCTYPE html>
 <html lang="en">
@@ -2356,6 +2653,7 @@ function downloadFinancialPDF() {
 // ─── Destroy ─────────────────────────────────────────────────────────────────
 
 export function destroyAnalyticsPage() {
+  currentDateFilter = null;
   if (unsubBookings) { unsubBookings(); unsubBookings = null; }
   if (unsubBills) { unsubBills(); unsubBills = null; }
   if (unsubSalaries) { unsubSalaries(); unsubSalaries = null; }
