@@ -2,12 +2,22 @@
 import { subscribeBookings } from '../../services/bookingService.js';
 import { openBookingModal } from '../../components/bookingModal.js';
 import { openPrintBill, openConsolidatedPrintBill, openEditGroupAdvanceModal } from '../../components/printBill.js';
-import { formatDate, formatCurrency, nightCount, getBookingGuestCount } from '../../utils/dateHelpers.js';
+import { formatDate, formatCurrency, nightCount, getBookingGuestCount, toDateStr } from '../../utils/dateHelpers.js';
 import { icon } from '../../components/icons.js';
 
 let unsubscribe = null;
 let allBookings = [];
 const selectedBookingIds = new Set();
+
+function getBookingDateStr(dateVal) {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateVal)) {
+    return dateVal.slice(0, 10);
+  }
+  const d = dateVal?.toDate ? dateVal.toDate() : new Date(dateVal);
+  if (isNaN(d.getTime())) return '';
+  return toDateStr(d);
+}
 
 export function renderMyBookingsPage(container) {
   selectedBookingIds.clear();
@@ -18,15 +28,30 @@ export function renderMyBookingsPage(container) {
         <h1 class="page-title">${icon('ticket', { size: 26 })} My Bookings</h1>
         <div style="font-size:0.82rem; color:var(--clr-text-muted); margin-top:2px">All current & upcoming reservations</div>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 items-center" style="flex-wrap:wrap">
         <div class="search-bar">
           <span style="display:inline-flex; align-items:center">${icon('search', { size: 16 })}</span>
           <input type="text" id="booking-search" placeholder="Search guest, room…" />
+        </div>
+        <!-- Date filter container -->
+        <div class="flex gap-1 items-center" style="background:var(--clr-surface); border:1.5px solid var(--clr-border); border-radius:var(--radius); padding:2px 8px; flex-wrap:wrap">
+          <span style="color:var(--clr-text-muted); display:inline-flex; align-items:center" title="Filter by Day">${icon('calendar', { size: 16 })}</span>
+          <input type="date" id="booking-date-filter" style="border:none; background:transparent; padding:6px 6px; font-size:0.85rem; color:var(--clr-text); font-family:var(--font); outline:none; cursor:pointer" title="Select day to filter bookings" />
+          <select id="booking-date-mode" style="border:none; border-left:1px solid var(--clr-border); background:transparent; padding:6px 8px; font-size:0.8rem; color:var(--clr-text); font-family:var(--font); outline:none; cursor:pointer" title="Date filter criteria">
+            <option value="staying">Staying (Active)</option>
+            <option value="checkIn">Check-In</option>
+            <option value="checkOut">Check-Out</option>
+          </select>
+          <button class="btn btn-sm btn-ghost" id="booking-date-today-btn" type="button" style="padding:3px 8px; font-size:0.75rem; border:1px solid var(--clr-border); border-radius:4px" title="Filter by Today">Today</button>
+          <button class="btn btn-sm btn-ghost" id="booking-date-clear-btn" type="button" style="padding:3px 6px; font-size:0.75rem; display:none; border:1px solid var(--clr-border); border-radius:4px" title="Clear Date Filter">✕</button>
         </div>
         <button class="btn btn-accent" id="new-booking-btn2">${icon('plus', { size: 16 })} New</button>
       </div>
     </div>
     <div class="page-body">
+      <!-- Active Filter Status Indicator -->
+      <div id="booking-filter-status" style="display:none; margin-bottom:12px; font-size:0.84rem; color:var(--clr-text); background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:var(--radius-sm); padding:8px 14px; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px"></div>
+
       <div class="card" style="padding:0; overflow:hidden">
         <div style="overflow-x:auto">
           <table class="data-table" id="bookings-table">
@@ -78,8 +103,27 @@ export function renderMyBookingsPage(container) {
     openBookingModal({ allBookings, onSaved: () => {} });
   });
 
-  document.getElementById('booking-search')?.addEventListener('input', (e) => {
-    filterTable(e.target.value);
+  document.getElementById('booking-search')?.addEventListener('input', applyFilters);
+
+  ['booking-date-filter', 'booking-date-mode'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', applyFilters);
+    document.getElementById(id)?.addEventListener('input', applyFilters);
+  });
+
+  document.getElementById('booking-date-today-btn')?.addEventListener('click', () => {
+    const dateInput = document.getElementById('booking-date-filter');
+    if (dateInput) {
+      dateInput.value = toDateStr(new Date());
+      applyFilters();
+    }
+  });
+
+  document.getElementById('booking-date-clear-btn')?.addEventListener('click', () => {
+    const dateInput = document.getElementById('booking-date-filter');
+    if (dateInput) {
+      dateInput.value = '';
+      applyFilters();
+    }
   });
 
   document.getElementById('th-select-all')?.addEventListener('change', (e) => {
@@ -121,8 +165,77 @@ export function renderMyBookingsPage(container) {
   if (unsubscribe) unsubscribe();
   unsubscribe = subscribeBookings((bookings) => {
     allBookings = bookings;
-    renderTable(bookings);
+    applyFilters();
   });
+}
+
+function applyFilters() {
+  const search = (document.getElementById('booking-search')?.value || '').toLowerCase().trim();
+  const selectedDate = document.getElementById('booking-date-filter')?.value || '';
+  const dateMode = document.getElementById('booking-date-mode')?.value || 'staying';
+
+  let filtered = allBookings;
+
+  if (selectedDate) {
+    filtered = filtered.filter(b => {
+      const ciStr = getBookingDateStr(b.checkIn);
+      const coStr = getBookingDateStr(b.checkOut);
+      if (!ciStr || !coStr) return false;
+
+      if (dateMode === 'checkIn') {
+        return ciStr === selectedDate;
+      } else if (dateMode === 'checkOut') {
+        return coStr === selectedDate;
+      } else {
+        // 'staying': guest is active in hotel on that day (between check-in and check-out)
+        return ciStr <= selectedDate && coStr >= selectedDate;
+      }
+    });
+  }
+
+  if (search) {
+    filtered = filtered.filter(b => {
+      const guestCount = getBookingGuestCount(b);
+      const extraGuestNames = (b.additionalGuests || []).map(g => g.name).filter(Boolean).join(' ');
+      const searchMeta = `${b.bookingNumber||''} ${b.guestName||''} ${b.phone||''} room ${b.roomNumber||''} ${guestCount} guests ${extraGuestNames}`.toLowerCase();
+      return searchMeta.includes(search);
+    });
+  }
+
+  // Update clear button visibility
+  const clearBtn = document.getElementById('booking-date-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = selectedDate ? 'inline-flex' : 'none';
+  }
+
+  // Update filter status bar
+  const statusEl = document.getElementById('booking-filter-status');
+  if (statusEl) {
+    if (selectedDate) {
+      statusEl.style.display = 'flex';
+      const [y, m, d] = selectedDate.split('-');
+      const dObj = new Date(Number(y), Number(m) - 1, Number(d));
+      const formattedDate = formatDate(dObj, true);
+      const modeLabel = dateMode === 'checkIn' ? 'Check-In' : (dateMode === 'checkOut' ? 'Check-Out' : 'Staying / Active');
+      statusEl.innerHTML = `
+        <span style="display:inline-flex; align-items:center; gap:6px">
+          ${icon('calendar', { size: 15 })} Showing bookings for <strong>${formattedDate}</strong> (${modeLabel}) &nbsp;·&nbsp; <span class="badge badge-primary" style="font-size:0.75rem; padding:1px 6px">${filtered.length} found</span>
+        </span>
+        <button id="booking-filter-reset-link" type="button" class="btn btn-sm btn-ghost" style="padding:2px 8px; font-size:0.75rem; color:var(--clr-danger); border:1px solid rgba(239,68,68,0.25)">
+          ✕ Clear Date Filter
+        </button>
+      `;
+      document.getElementById('booking-filter-reset-link')?.addEventListener('click', () => {
+        const dateInput = document.getElementById('booking-date-filter');
+        if (dateInput) dateInput.value = '';
+        applyFilters();
+      });
+    } else {
+      statusEl.style.display = 'none';
+    }
+  }
+
+  renderTable(filtered);
 }
 
 function updateBulkBar() {
@@ -140,7 +253,8 @@ function renderTable(bookings) {
   if (!tbody) return;
 
   if (!bookings.length) {
-    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:var(--clr-text-muted); padding:40px">No active bookings</td></tr>`;
+    const isFiltered = Boolean(document.getElementById('booking-date-filter')?.value || document.getElementById('booking-search')?.value);
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:var(--clr-text-muted); padding:40px">${isFiltered ? 'No bookings found matching selected filters' : 'No active bookings'}</td></tr>`;
     updateBulkBar();
     return;
   }
@@ -211,26 +325,18 @@ function renderTable(bookings) {
   // Bind action buttons
   document.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const booking = bookings.find(b => b.id === btn.dataset.id);
-      if (booking) openBookingModal({ booking, allBookings: bookings, onSaved: () => {} });
+      const booking = allBookings.find(b => b.id === btn.dataset.id);
+      if (booking) openBookingModal({ booking, allBookings, onSaved: () => {} });
     });
   });
 
   document.querySelectorAll('.print-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const booking = bookings.find(b => b.id === btn.dataset.id);
-      if (booking) openPrintBill(booking, bookings);
+      const booking = allBookings.find(b => b.id === btn.dataset.id);
+      if (booking) openPrintBill(booking, allBookings);
     });
   });
 
   updateBulkBar();
 }
 
-function filterTable(query) {
-  const q = (query || '').toLowerCase().trim();
-  const rows = document.querySelectorAll('#bookings-tbody tr[data-search]');
-  rows.forEach(row => {
-    const meta = row.dataset.search || '';
-    row.style.display = meta.includes(q) ? '' : 'none';
-  });
-}
