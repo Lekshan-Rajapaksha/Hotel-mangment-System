@@ -97,9 +97,9 @@ export function renderAnalyticsPage(container) {
           </select>
           <select class="form-control" id="analytics-year" style="width:100px">
             ${[0, 1, 2].map(i => {
-    const y = currentYear - i;
-    return `<option value="${y}" ${i === 0 ? 'selected' : ''}>${y}</option>`;
-  }).join('')}
+              const y = currentYear - i;
+              return `<option value="${y}" ${i === 0 ? 'selected' : ''}>${y}</option>`;
+            }).join('')}
           </select>
         </div>
 
@@ -954,7 +954,7 @@ function updateFinancialCards({
     if (currentDateFilter) {
       bksSub.textContent = `${checkInBookingsCount} check-in(s) · ${occupiedRoomsCount} room(s) in-house`;
     } else {
-      const paidCount = bookings.filter(b => Math.max(0, (Number(b.fullPrice) || 0) - (Number(b.discountAmount) || 0) - (Number(b.advancePaid) || 0)) <= 0).length;
+      const paidCount = bookings.filter(b => Math.max(0, (Number(b.fullPrice)||0) - (Number(b.discountAmount)||0) - (Number(b.advancePaid)||0)) <= 0).length;
       bksSub.textContent = `${paidCount} fully paid · ${bookingsCount - paidCount} with balance`;
     }
   }
@@ -962,7 +962,7 @@ function updateFinancialCards({
   // Occupancy rate calculation
   const occEl = document.getElementById('stat-occ');
   const occSub = document.getElementById('stat-occ-sub');
-
+  
   if (currentDateFilter) {
     const occPct = ((occupiedRoomsCount / 7) * 100).toFixed(1);
     if (occEl) occEl.textContent = `${occPct}%`;
@@ -1489,17 +1489,17 @@ function updateCashFlowSummary(bookings, bills, salaries, commissions = 0, profi
 }
 
 const CHART_COLORS = {
-  primary: 'rgba(79,114,245,0.85)',
+  primary:     'rgba(79,114,245,0.85)',
   primaryLine: '#4f72f5',
-  accent: 'rgba(245,105,42,0.85)',
-  success: 'rgba(34,197,94,0.85)',
+  accent:      'rgba(245,105,42,0.85)',
+  success:     'rgba(34,197,94,0.85)',
   successLine: '#22c55e',
-  danger: 'rgba(239,68,68,0.85)',
-  dangerLine: '#ef4444',
-  purple: 'rgba(124,92,246,0.85)',
-  pink: 'rgba(244,114,182,0.85)',
-  teal: 'rgba(20,184,166,0.85)',
-  yellow: 'rgba(245,158,11,0.85)',
+  danger:      'rgba(239,68,68,0.85)',
+  dangerLine:  '#ef4444',
+  purple:      'rgba(124,92,246,0.85)',
+  pink:        'rgba(244,114,182,0.85)',
+  teal:        'rgba(20,184,166,0.85)',
+  yellow:      'rgba(245,158,11,0.85)',
 };
 
 const chartDefaults = {
@@ -1926,15 +1926,15 @@ function renderRecentSummary(bookings) {
         </thead>
         <tbody>
           ${recent.map(b => {
-    const nights = nightCount(b.checkIn, b.checkOut);
-    const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
-    const co = b.checkOut?.toDate ? b.checkOut.toDate() : new Date(b.checkOut);
-    const now = new Date();
-    const isPast = co < now;
-    const isCurrent = ci <= now && co >= now;
-    const statusLabel = isPast ? '✅ Done' : isCurrent ? '🟢 Active' : '🔵 Upcoming';
-    const statusColor = isPast ? 'var(--clr-text-muted)' : isCurrent ? 'var(--clr-success)' : 'var(--clr-primary)';
-    return `
+            const nights = nightCount(b.checkIn, b.checkOut);
+            const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+            const co = b.checkOut?.toDate ? b.checkOut.toDate() : new Date(b.checkOut);
+            const now = new Date();
+            const isPast = co < now;
+            const isCurrent = ci <= now && co >= now;
+            const statusLabel = isPast ? '✅ Done' : isCurrent ? '🟢 Active' : '🔵 Upcoming';
+            const statusColor = isPast ? 'var(--clr-text-muted)' : isCurrent ? 'var(--clr-success)' : 'var(--clr-primary)';
+            return `
               <tr>
                 <td data-label="Guest">
                   <div style="font-weight:600">${b.guestName || 'Guest'}</div>
@@ -1948,7 +1948,7 @@ function renderRecentSummary(bookings) {
                 <td data-label="Status" style="color:${statusColor};font-weight:600;font-size:0.82rem">${statusLabel}</td>
               </tr>
             `;
-  }).join('')}
+          }).join('')}
         </tbody>
       </table>
     </div>
@@ -1959,11 +1959,11 @@ function renderRecentSummary(bookings) {
 
 /** Called from the print window's dropdowns via window.opener.generateReport(year, monthFilter, singleDate) */
 function generateReport(year, monthFilter, singleDate = null) {
-  year = parseInt(year);
+  year        = parseInt(year);
   monthFilter = String(monthFilter);
   const isSingleDate = Boolean(singleDate);
-  const isAllMonths = !isSingleDate && monthFilter === 'all';
-  const monthIdx = (!isSingleDate && !isAllMonths) ? parseInt(monthFilter) : null;
+  const isAllMonths  = !isSingleDate && monthFilter === 'all';
+  const monthIdx     = (!isSingleDate && !isAllMonths) ? parseInt(monthFilter) : null;
 
   let periodLabel = '';
   if (isSingleDate) {
@@ -1998,7 +1998,7 @@ function generateReport(year, monthFilter, singleDate = null) {
     if (!raw) return '—';
     const d = raw?.toDate ? raw.toDate() : new Date(raw);
     if (isNaN(d.getTime())) return '—';
-    return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+    return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}`;
   }
 
   // ── Year-level data ───────────────────────────────────────────────────────────
@@ -2034,14 +2034,14 @@ function generateReport(year, monthFilter, singleDate = null) {
 
   const books = isSingleDate
     ? allBookings.filter(b => {
-      if (b.status !== 'active') return false;
-      const { ciStr, coStr } = getBookingCiCoStr(b);
-      return ciStr === singleDate || (ciStr && coStr && ciStr <= singleDate && coStr >= singleDate);
-    })
+        if (b.status !== 'active') return false;
+        const { ciStr, coStr } = getBookingCiCoStr(b);
+        return ciStr === singleDate || (ciStr && coStr && ciStr <= singleDate && coStr >= singleDate);
+      })
     : (isAllMonths ? yearBookings : yearBookings.filter(b => {
-      const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
-      return ci.getMonth() === monthIdx;
-    }));
+        const ci = b.checkIn?.toDate ? b.checkIn.toDate() : new Date(b.checkIn);
+        return ci.getMonth() === monthIdx;
+      }));
 
   const bills = isSingleDate
     ? allUtilityBills.filter(b => getRecordDateStr(b) === singleDate)
@@ -2058,23 +2058,23 @@ function generateReport(year, monthFilter, singleDate = null) {
   // ── Period totals ─────────────────────────────────────────────────────────────
   const totalIncome = isSingleDate
     ? books.filter(b => {
-      const { ciStr } = getBookingCiCoStr(b);
-      return ciStr === singleDate;
-    }).reduce((s, b) => s + Number(b.fullPrice || 0), 0)
+        const { ciStr } = getBookingCiCoStr(b);
+        return ciStr === singleDate;
+      }).reduce((s, b) => s + Number(b.fullPrice || 0), 0)
     : books.reduce((s, b) => s + Number(b.fullPrice || 0), 0);
 
-  const totalBills = bills.reduce((s, b) => s + Number(b.amount || 0), 0);
-  const totalSalaries = sals.reduce((s, p) => s + Number(p.totalPaid || p.amount || 0), 0);
+  const totalBills       = bills.reduce((s, b) => s + Number(b.amount || 0), 0);
+  const totalSalaries    = sals.reduce((s, p) => s + Number(p.totalPaid || p.amount || 0), 0);
   const totalCommissions = comms.reduce((s, c) => s + Number(c.amount || 0), 0);
-  const totalExpenses = totalBills + totalSalaries + totalCommissions;
-  const netProfit = totalIncome - totalExpenses;
-  const margin = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : '0.0';
-  const isProfit = netProfit >= 0;
+  const totalExpenses    = totalBills + totalSalaries + totalCommissions;
+  const netProfit        = totalIncome - totalExpenses;
+  const margin           = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : '0.0';
+  const isProfit         = netProfit >= 0;
 
   // ── 12-month arrays ───────────────────────────────────────────────────────────
-  const mInc = Array(12).fill(0);
+  const mInc  = Array(12).fill(0);
   const mBill = Array(12).fill(0);
-  const mSal = Array(12).fill(0);
+  const mSal  = Array(12).fill(0);
   const mComm = Array(12).fill(0);
 
   yearBookings.forEach(b => {
@@ -2093,21 +2093,21 @@ function generateReport(year, monthFilter, singleDate = null) {
     const d = resolveDate(c); if (d) mComm[d.getMonth()] += Number(c.amount || 0);
   });
 
-  const totYrInc = mInc.reduce((s, v) => s + v, 0);
-  const totYrBill = mBill.reduce((s, v) => s + v, 0);
-  const totYrSal = mSal.reduce((s, v) => s + v, 0);
-  const totYrComm = mComm.reduce((s, v) => s + v, 0);
-  const totYrExp = totYrBill + totYrSal + totYrComm;
+  const totYrInc  = mInc.reduce((s,v)=>s+v,0);
+  const totYrBill = mBill.reduce((s,v)=>s+v,0);
+  const totYrSal  = mSal.reduce((s,v)=>s+v,0);
+  const totYrComm = mComm.reduce((s,v)=>s+v,0);
+  const totYrExp  = totYrBill + totYrSal + totYrComm;
   const totYrProf = totYrInc - totYrExp;
 
   const now = new Date();
-  const generatedAt = fmtD(now) + ', ' + now.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' });
+  const generatedAt = fmtD(now) + ', ' + now.toLocaleTimeString('en-LK', { hour:'2-digit', minute:'2-digit' });
 
   // ── HTML Sections ─────────────────────────────────────────────────────────────
 
   const monthlyRowsHtml = MONTHS.map((name, i) => {
-    const inc = mInc[i];
-    const exp = mBill[i] + mSal[i] + mComm[i];
+    const inc  = mInc[i];
+    const exp  = mBill[i] + mSal[i] + mComm[i];
     const prof = inc - exp;
     const isSelected = !isAllMonths && i === monthIdx;
     const rowCls = isSelected ? 'row-selected' : (i % 2 === 0 ? 'row-even' : '');
@@ -2129,7 +2129,7 @@ function generateReport(year, monthFilter, singleDate = null) {
     return db - da;
   });
   const incomeDetailHtml = sortedBooks.map((b, idx) => {
-    const nights = nightCount(b.checkIn, b.checkOut);
+    const nights  = nightCount(b.checkIn, b.checkOut);
     const advance = Number(b.advancePaid || 0);
     const balance = Math.max(0, Number(b.fullPrice || 0) - Number(b.discountAmount || 0) - advance);
     return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
@@ -2145,12 +2145,12 @@ function generateReport(year, monthFilter, singleDate = null) {
     </tr>`;
   }).join('') || '<tr><td colspan="9" class="empty">No bookings for this period.</td></tr>';
 
-  const sortedSals = [...sals].sort((a, b) => (resolveDate(b)?.getTime() || 0) - (resolveDate(a)?.getTime() || 0));
+  const sortedSals = [...sals].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
   const salaryDetailHtml = sortedSals.map((p, idx) => {
     const emp = empMap[p.employeeId] || { name: p.employeeName || 'Staff Member', role: 'Staff' };
     const pMIdx = p.month !== undefined && p.month !== null ? parseInt(p.month) - 1 : null;
     const period = (pMIdx !== null && pMIdx >= 0 && pMIdx < 12)
-      ? `${MONTHS[pMIdx].slice(0, 3)} ${p.year || year}`
+      ? `${MONTHS[pMIdx].slice(0,3)} ${p.year || year}`
       : (p.year || year);
     return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
       <td>${fmtD(p.date || p.createdAt)}</td>
@@ -2162,8 +2162,8 @@ function generateReport(year, monthFilter, singleDate = null) {
     </tr>`;
   }).join('') || '<tr><td colspan="6" class="empty">No salary payments for this period.</td></tr>';
 
-  const sortedBills = [...bills].sort((a, b) => (resolveDate(b)?.getTime() || 0) - (resolveDate(a)?.getTime() || 0));
-  const billTypeIcon = { Light: '⚡', Water: '💧', Internet: '🌐', Gas: '🔥', Maintenance: '🛠️' };
+  const sortedBills = [...bills].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
+  const billTypeIcon = { Light:'⚡', Water:'💧', Internet:'🌐', Gas:'🔥', Maintenance:'🛠️' };
   const billDetailHtml = sortedBills.map((b, idx) => {
     const icon = billTypeIcon[b.type] || '🧾';
     return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
@@ -2174,7 +2174,7 @@ function generateReport(year, monthFilter, singleDate = null) {
     </tr>`;
   }).join('') || '<tr><td colspan="4" class="empty">No utility bills for this period.</td></tr>';
 
-  const sortedComms = [...comms].sort((a, b) => (resolveDate(b)?.getTime() || 0) - (resolveDate(a)?.getTime() || 0));
+  const sortedComms = [...comms].sort((a, b) => (resolveDate(b)?.getTime()||0) - (resolveDate(a)?.getTime()||0));
   const commDetailHtml = sortedComms.map((c, idx) => {
     return `<tr class="${idx % 2 === 0 ? 'row-even' : ''}">
       <td>${fmtD(c.paidAt || c.date || c.createdAt)}</td>
@@ -2395,13 +2395,13 @@ function generateReport(year, monthFilter, singleDate = null) {
 window._hotelGenerateReport = generateReport;
 
 function downloadFinancialPDF() {
-  const yearSelect = document.getElementById('analytics-year');
+  const yearSelect  = document.getElementById('analytics-year');
   const monthSelect = document.getElementById('analytics-month');
   if (!yearSelect) return;
 
-  const initYear = yearSelect.value || String(new Date().getFullYear());
+  const initYear        = yearSelect.value || String(new Date().getFullYear());
   const initMonthFilter = monthSelect ? monthSelect.value : 'all';
-  const currentYear = new Date().getFullYear();
+  const currentYear     = new Date().getFullYear();
 
   const printWin = window.open('', '_blank', 'width=1060,height=860,scrollbars=yes');
   if (!printWin) {
